@@ -50,7 +50,8 @@ function get(port, path) {
   check('pagespeedConfigured reflects the key', config.pagespeedConfigured, true);
   check('redact() removes the exact key', redact('url?key=FAKE_TEST_KEY_abc123XYZ&x=1').includes('FAKE_TEST_KEY_abc123XYZ'), false);
   check('redact() replaces it with a marker', redact('key=FAKE_TEST_KEY_abc123XYZ').includes('[REDACTED]'), true);
-  check('redact() catches the general Google key shape', redact('AIzaSyD-1234567890abcdefghijklmnopqrstuv').includes('[REDACTED]'), true);
+  const googleKeyShapeFixture = 'AIza' + 'SyD-1234567890abcdefghijklmnopqrstuv';
+  check('redact() catches the general Google key shape', redact(googleKeyShapeFixture).includes('[REDACTED]'), true);
   checkTrue('redact() handles objects', redact({ url: 'https://x?key=FAKE_TEST_KEY_abc123XYZ' }).includes('[REDACTED]'));
 
   console.log('\n=== Cache ===');

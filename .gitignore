@@ -3,7 +3,17 @@ node_modules/
 .env.*
 !.env.example
 .DS_Store
+Thumbs.db
 coverage/
 dist/
 build/
+.cache/
+.tmp/
+playwright-report/
+test-results/
 *.log
+*.zip
+*.pem
+*.key
+.vscode/
+.idea/
