@@ -1,0 +1,135 @@
+/* Dashboard-specific layout. Shared visual language lives in shared/theme.css. */
+
+body{min-height:100vh;display:flex;flex-direction:column}
+.appbar{height:62px;position:sticky;top:0;z-index:20}
+.stamp{font-size:11.5px;color:#94a3c4;margin-right:6px;white-space:nowrap}
+
+.fullstate{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:60px 24px;text-align:center;
+}
+.fullstate h2{font-size:17px}
+
+.shell{flex:1;display:grid;grid-template-columns:216px 1fr;min-height:0}
+
+.sidebar{
+  background:var(--surface);border-right:1px solid var(--line);
+  padding:16px 12px;display:flex;flex-direction:column;gap:2px;
+  position:sticky;top:62px;height:calc(100vh - 62px);overflow-y:auto;
+}
+.navitem{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:none;border:0;border-radius:var(--r-sm);
+  padding:9px 11px;font-size:13px;font-weight:600;color:var(--text-2);text-align:left;width:100%;
+}
+.navitem:hover{background:var(--surface-2);color:var(--text)}
+.navitem.active{background:var(--blue-soft);color:var(--blue)}
+.navitem em{
+  font-style:normal;background:var(--red-soft);color:var(--red);
+  border-radius:20px;padding:1px 7px;font-size:10px;font-weight:800;
+}
+.navitem em.zero{background:var(--green-soft);color:var(--green)}
+.sidebar-foot{margin-top:auto;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.export-title{
+  font-size:10px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--text-3);font-weight:700;margin-bottom:2px;padding:0 2px;
+}
+.exp{justify-content:flex-start}
+
+.content{padding:24px 28px 48px;min-width:0;max-width:1240px}
+.page-title{margin-bottom:4px;font-size:19px}
+.page-sub{font-size:13px;color:var(--text-3);margin-bottom:20px;max-width:760px;line-height:1.55}
+
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.card{margin-bottom:20px}
+
+/* big score */
+.hero{display:flex;gap:32px;align-items:center;padding:8px 4px}
+.hero .ring{width:168px;height:168px}
+.hero .ring:after{width:calc(100% - 28px);height:calc(100% - 28px)}
+.hero .ring .inner b{font-size:50px}
+.hero .ring .inner i{font-size:12px;margin-top:3px}
+.hero-side{flex:1;min-width:0}
+.hero-side h2{font-size:22px;margin-bottom:6px}
+.hero-side .lead{font-size:13.5px;color:var(--text-2);line-height:1.6;margin-bottom:18px;max-width:620px}
+.catlist{display:grid;grid-template-columns:1fr 1fr;gap:4px 26px;max-width:680px}
+.catbar{grid-template-columns:104px 1fr 38px}
+
+/* headings outline */
+.outline{padding:6px}
+.outline .hrow{cursor:pointer}
+.locate{
+  opacity:0;font-size:10.5px;color:var(--blue);font-weight:700;
+  flex:0 0 auto;transition:opacity .12s;
+}
+.hrow:hover .locate,.hrow:focus-visible .locate{opacity:1}
+
+/* source viewer */
+.source-toolbar{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  padding:12px 16px;border-bottom:1px solid var(--line);background:var(--surface-2);
+}
+.source-toolbar input[type="search"]{
+  flex:1;min-width:200px;padding:8px 11px;font-size:12.5px;
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--text);font-family:inherit;
+}
+.source-toolbar input:focus{outline:2px solid var(--blue);outline-offset:1px}
+.code{
+  margin:0;max-height:620px;overflow:auto;background:#0d1526;
+  border-radius:0 0 var(--r-lg) var(--r-lg);
+}
+.code table{border-collapse:collapse;width:100%;font-size:11.5px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.code td{border:0;padding:1px 0;color:#c8d6f0;vertical-align:top;background:none}
+.code tr:hover td{background:rgba(255,255,255,.045)}
+.code td.ln{
+  width:52px;text-align:right;padding-right:14px;color:#5b6a87;
+  user-select:none;position:sticky;left:0;background:#0d1526;
+}
+.code td.src{white-space:pre-wrap;word-break:break-word;padding-right:16px}
+.code mark{background:#b4770f;color:#fff;border-radius:2px}
+.code tr.hit td.ln{color:#f0c674}
+
+@media (max-width:1000px){
+  .shell{grid-template-columns:1fr}
+  .sidebar{position:static;height:auto;flex-direction:row;flex-wrap:wrap;
+    border-right:0;border-bottom:1px solid var(--line)}
+  .navitem{width:auto}
+  .sidebar-foot{width:100%;flex-direction:row;flex-wrap:wrap;margin-top:8px}
+  .grid-4,.grid-3{grid-template-columns:repeat(2,1fr)}
+  .grid-2,.catlist{grid-template-columns:1fr}
+  .hero{flex-direction:column;align-items:flex-start;gap:20px}
+}
+
+
+/* sidebar separator between analysis sections and account sections */
+.nav-sep{height:1px;background:var(--line);margin:8px 4px}
+
+/* settings key inputs */
+.setting-input{
+  flex:1;min-width:240px;padding:9px 11px;font-size:12.5px;
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--text);font-family:ui-monospace,Menlo,Consolas,monospace;
+}
+.setting-input:focus{outline:2px solid var(--blue);outline-offset:1px}
+
+
+.coverage-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.coverage-row > div { background:var(--surface-2,#f6f8fb); border:1px solid var(--line,#e5e9f0); border-radius:12px; padding:13px 14px; }
+.coverage-row .label { display:block; font-size:11px; color:var(--text-2); margin-bottom:5px; }
+.coverage-row strong { font-size:18px; letter-spacing:-.2px; }
+@media (max-width:760px) { .coverage-row { grid-template-columns:1fr; } }
+
+@media print {
+  body { background:#fff !important; }
+  .appbar, .sidebar, .toast, #loadingState, #emptyState { display:none !important; }
+  .shell { display:block !important; margin:0 !important; }
+  .content { margin:0 !important; padding:24px !important; max-width:none !important; }
+  .card { break-inside:avoid; box-shadow:none !important; }
+  a { color:#111 !important; text-decoration:none !important; }
+}
+
+.grid-4 .stat .value { font-size:17px; white-space:nowrap; letter-spacing:-.25px; }

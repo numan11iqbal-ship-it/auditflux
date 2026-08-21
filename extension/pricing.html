@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing — AuditFlux SEO</title>
+<link rel="icon" type="image/png" href="icons/icon-32.png">
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="pricing.css">
+</head>
+<body>
+
+<header class="appbar">
+  <div class="brand">
+    <img class="brand-mark" src="icons/icon-48.png" alt="" width="32" height="32">
+    <div class="brand-text">
+      <strong>AuditFlux SEO</strong>
+      <span>Pricing &amp; plans</span>
+    </div>
+  </div>
+  <div class="appbar-actions">
+    <span id="modeBadge" class="stamp"></span>
+    <button class="btn btn-dark btn-sm" id="usageBtn">Your usage</button>
+    <button class="btn btn-primary btn-sm" id="backBtn">Back to report</button>
+  </div>
+</header>
+
+<main class="pricing-page">
+  <section class="hero">
+    <h1>SEO intelligence that scales with your workflow</h1>
+    <p>Start free. Upgrade when you need deeper data, larger crawls and professional reporting.</p>
+    <div class="billing-toggle" role="group" aria-label="Billing period">
+      <button class="toggle-opt active" data-interval="monthly" aria-pressed="true">Monthly</button>
+      <button class="toggle-opt" data-interval="yearly" aria-pressed="false">Yearly <em id="saveBadge"></em></button>
+    </div>
+  </section>
+
+  <section id="planCards" class="plan-grid"></section>
+
+  <section class="card" id="currentUsage">
+    <div class="card-head"><h3>Your current usage</h3><span class="sub" id="usagePlanLabel"></span></div>
+    <div id="usageBody"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h3>Compare every feature</h3><span class="sub">Free is limited by volume, not by which problems you can see</span></div>
+    <div class="table-wrap" style="border:0;border-radius:0 0 var(--r-lg) var(--r-lg)">
+      <table id="comparisonTable"><thead><tr>
+        <th style="min-width:260px">Feature</th><th>Free</th><th>Pro</th><th>Agency</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h3>Questions</h3></div>
+    <div id="faq"></div>
+  </section>
+
+  <p class="footnote" id="footnote"></p>
+</main>
+
+<div class="modal-backdrop hidden" id="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle">Payments are coming soon</h3>
+    <p id="modalBody"></p>
+    <div class="modal-actions">
+      <button class="btn" id="modalClose">Close</button>
+      <button class="btn btn-primary hidden" id="modalPreview">Preview this plan</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config/plans.js"></script>
+<script src="engine/entitlements.js"></script>
+<script src="pricing.js"></script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AuditFlux SEO — Full Report</title>
+<link rel="icon" type="image/png" href="icons/icon-32.png">
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<header class="appbar">
+  <div class="brand">
+    <img class="brand-mark" src="icons/icon-48.png" alt="" width="32" height="32">
+    <div class="brand-text">
+      <strong>AuditFlux SEO</strong>
+      <span id="pageUrl">Loading report…</span>
+    </div>
+  </div>
+  <div class="appbar-actions">
+    <span id="scanStamp" class="stamp"></span>
+    <button class="btn btn-dark btn-sm" id="planBadge" title="View plans and usage">FREE</button>
+    <button class="btn btn-dark btn-sm" id="overlayBtn" aria-pressed="false">H1–H6 overlay</button>
+    <button class="btn btn-dark btn-sm" id="copyBtn">Copy report</button>
+    <button class="btn btn-dark btn-sm" id="openPageBtn">Open page</button>
+    <button class="btn btn-primary btn-sm" id="refreshBtn">Re-scan</button>
+  </div>
+</header>
+
+<section id="loadingState" class="fullstate">
+  <div class="spinner" role="status" aria-label="Loading"></div>
+  <h2>Loading report</h2>
+</section>
+
+<section id="emptyState" class="fullstate hidden">
+  <div class="empty">
+    <img src="icons/icon-128.png" alt="" width="56" height="56" style="margin:0 auto 12px;display:block">
+    <b>No audit to show yet</b>
+    <p>Open a website, click the AuditFlux SEO icon in your toolbar, then choose <strong>Full report</strong>. The audit runs in the popup and opens here.</p>
+  </div>
+</section>
+
+<div id="shell" class="shell hidden">
+  <nav class="sidebar" id="sidebar" role="tablist" aria-label="Report sections">
+    <button class="navitem active" data-view="overview" role="tab"><span class="nav-l">Overview</span></button>
+    <button class="navitem" data-view="issues" role="tab"><span class="nav-l">Issues</span><em id="navIssues"></em></button>
+    <button class="navitem" data-view="headings" role="tab"><span class="nav-l">Headings</span></button>
+    <button class="navitem" data-view="links" role="tab"><span class="nav-l">Links</span></button>
+    <button class="navitem" data-view="images" role="tab"><span class="nav-l">Images</span></button>
+    <button class="navitem" data-view="schema" role="tab"><span class="nav-l">Schema</span></button>
+    <button class="navitem" data-view="geo" role="tab"><span class="nav-l">GEO / AEO</span></button>
+    <button class="navitem" data-view="performance" role="tab"><span class="nav-l">Performance</span></button>
+    <button class="navitem" data-view="accessibility" role="tab"><span class="nav-l">Accessibility</span></button>
+    <button class="navitem" data-view="technical" role="tab"><span class="nav-l">Technical</span></button>
+    <button class="navitem" data-view="resources" role="tab"><span class="nav-l">Resources</span></button>
+    <div class="nav-sep"></div>
+    <button class="navitem" data-view="usage" role="tab"><span class="nav-l">Usage</span></button>
+    <button class="navitem" data-view="settings" role="tab"><span class="nav-l">Settings</span></button>
+    <button class="navitem" data-view="source" role="tab"><span class="nav-l">HTML source</span></button>
+    <div class="sidebar-foot">
+      <div class="export-title">Export CSV</div>
+      <button class="btn btn-sm exp" data-csv="issues">Issues</button>
+      <button class="btn btn-sm exp" data-csv="headings">Headings</button>
+      <button class="btn btn-sm exp" data-csv="links">Links</button>
+      <button class="btn btn-sm exp" data-csv="images">Images</button>
+      <button class="btn btn-sm exp" data-csv="schema">Schema</button>
+    </div>
+  </nav>
+  <main class="content" id="content" role="tabpanel"></main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config/plans.js"></script>
+<script src="engine/provenance.js"></script>
+<script src="engine/entitlements.js"></script>
+<script src="engine/pagespeed.js"></script>
+<script src="engine/backend-client.js"></script>
+<script src="engine/psi-cache.js"></script>
+<script src="engine/analyzer.js"></script>
+<script src="engine/rules.js"></script>
+<script src="engine/report.js"></script>
+<script src="content/overlay.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>

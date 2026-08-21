@@ -1,0 +1,10 @@
+{
+  "name": "auditflux",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AuditFlux browser extension and backend proxy",
+  "scripts": {
+    "verify:no-secrets": "node backend/verify-no-secrets.js",
+    "test:backend": "node --test backend/proxy.test.js"
+  }
+}
