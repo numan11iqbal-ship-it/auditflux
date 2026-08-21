@@ -1,0 +1,10 @@
+{
+  "framework": "vite",
+  "installCommand": "pnpm install --frozen-lockfile && cd web/dashboard && pnpm install --frozen-lockfile",
+  "buildCommand": "cd web/dashboard && pnpm build",
+  "outputDirectory": "web/dashboard/dist/public",
+  "rewrites": [
+    { "source": "/audit/:id", "destination": "/index.html" },
+    { "source": "/:path*", "destination": "/index.html" }
+  ]
+}

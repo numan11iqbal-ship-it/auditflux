@@ -20,7 +20,7 @@ const { makeCache } = require('./cache');
 const { makeInflight, makeRateLimiter } = require('./guard');
 const {
   sccParsePageSpeed, sccParseCrux
-} = require('../../scc/engine/pagespeed.js');
+} = require('../extension/engine/pagespeed.js');
 
 const app = express();
 app.disable('x-powered-by');

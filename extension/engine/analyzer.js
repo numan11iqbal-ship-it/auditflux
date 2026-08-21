@@ -41,6 +41,33 @@ async function SCC_ANALYZE() {
   const txt = (el) => (el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : '');
   const attr = (el, a) => (el && el.hasAttribute(a) ? el.getAttribute(a) : null);
 
+  function locatorFor(el, text) {
+    if (!el) return null;
+    const attributes = {};
+    ['id', 'name', 'role', 'aria-label', 'alt', 'href', 'src'].forEach(key => {
+      const value = el.getAttribute && el.getAttribute(key);
+      if (value) attributes[key] = String(value).slice(0, 240);
+    });
+    const parts = [];
+    let node = el;
+    while (node && node.nodeType === 1 && parts.length < 6) {
+      const tag = node.tagName.toLowerCase();
+      if (node.id) { parts.unshift(tag + '#' + node.id.replace(/[^a-zA-Z0-9_-]/g, '\\$&')); break; }
+      let nth = 1;
+      let sibling = node;
+      while ((sibling = sibling.previousElementSibling)) if (sibling.tagName === node.tagName) nth += 1;
+      parts.unshift(tag + ':nth-of-type(' + nth + ')');
+      node = node.parentElement;
+    }
+    const selector = parts.join(' > ');
+    return {
+      selector: selector || null,
+      tagName: el.tagName ? el.tagName.toLowerCase() : null,
+      textSnippet: String(text || txt(el)).slice(0, 240),
+      attributeHints: attributes,
+    };
+  }
+
   function metaContent(selector) {
     const el = document.querySelector(selector);
     if (!el) return null;
@@ -159,7 +186,8 @@ async function SCC_ANALYZE() {
       text: t.slice(0, 300),
       length: t.length,
       empty: t.length === 0,
-      isQuestion: t.endsWith('?') || QUESTION_STARTS.indexOf(first.toLowerCase()) !== -1
+      isQuestion: t.endsWith('?') || QUESTION_STARTS.indexOf(first.toLowerCase()) !== -1,
+      locator: locatorFor(el, t)
     };
   });
 
@@ -242,7 +270,8 @@ async function SCC_ANALYZE() {
       links.push({
         href: raw, absolute: null, anchor: txt(a).slice(0, 200), type: 'other',
         rel: attr(a, 'rel') || '', nofollow: false, sponsored: false, ugc: false,
-        target: attr(a, 'target'), hasImageOnly: !txt(a) && !!a.querySelector('img')
+        target: attr(a, 'target'), hasImageOnly: !txt(a) && !!a.querySelector('img'),
+        locator: locatorFor(a, txt(a))
       });
       return;
     }
@@ -262,7 +291,8 @@ async function SCC_ANALYZE() {
       sponsored: rel.split(/\s+/).indexOf('sponsored') !== -1,
       ugc: rel.split(/\s+/).indexOf('ugc') !== -1,
       target: attr(a, 'target'),
-      hasImageOnly: !anchorText && !!a.querySelector('img')
+      hasImageOnly: !anchorText && !!a.querySelector('img'),
+      locator: locatorFor(a, anchorText)
     });
   });
 
@@ -325,7 +355,8 @@ async function SCC_ANALYZE() {
       srcset: !!img.getAttribute('srcset'),
       format: format,
       // complete + zero natural size means the fetch failed.
-      broken: img.complete && img.naturalWidth === 0 && !!src
+      broken: img.complete && img.naturalWidth === 0 && !!src,
+      locator: locatorFor(img, altAttr || '')
     };
   });
 

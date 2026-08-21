@@ -204,6 +204,38 @@ function SCC_LOCATE_HEADING(index) {
   return { located: true, text: (el.textContent || '').trim().slice(0, 120) };
 }
 
+/**
+ * Resolves an audit locator against the currently open audited page, scrolls to
+ * the exact target, and highlights it without altering the page content.
+ */
+function SCC_LOCATE_AUDIT_TARGET(locator) {
+  if (!locator) return { located: false, reason: 'NO_LOCATOR' };
+  let el = null;
+  try { if (locator.selector) el = document.querySelector(locator.selector); } catch (e) {}
+  if (!el && locator.attributeHints?.id) el = document.getElementById(locator.attributeHints.id);
+  if (!el && locator.textSnippet) {
+    const expected = locator.textSnippet.replace(/\s+/g, ' ').trim();
+    el = Array.from(document.querySelectorAll(locator.tagName || '*')).find(candidate =>
+      (candidate.textContent || '').replace(/\s+/g, ' ').trim().slice(0, expected.length) === expected
+    ) || null;
+  }
+  if (!el) return { located: false, reason: 'PAGE_CHANGED' };
+  el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  const flash = document.createElement('div');
+  const r = el.getBoundingClientRect();
+  flash.style.cssText = [
+    'position:absolute', 'left:' + (r.left + (window.scrollX || 0)) + 'px',
+    'top:' + (r.top + (window.scrollY || 0)) + 'px', 'width:' + r.width + 'px',
+    'height:' + r.height + 'px', 'background:rgba(99,243,107,.18)',
+    'border:2px solid rgba(99,243,107,.85)', 'border-radius:4px',
+    'pointer-events:none', 'z-index:2147483000', 'transition:opacity .35s ease'
+  ].join(';');
+  document.body.appendChild(flash);
+  setTimeout(() => { flash.style.opacity = '0'; }, 1400);
+  setTimeout(() => { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 1900);
+  return { located: true, tagName: el.tagName.toLowerCase(), text: (el.textContent || '').trim().slice(0, 160) };
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { SCC_TOGGLE_HEADING_OVERLAY, SCC_LOCATE_HEADING };
+  module.exports = { SCC_TOGGLE_HEADING_OVERLAY, SCC_LOCATE_HEADING, SCC_LOCATE_AUDIT_TARGET };
 }

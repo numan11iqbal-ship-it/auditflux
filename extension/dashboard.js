@@ -668,6 +668,27 @@ let CRUX = { mobile: null, desktop: null };
 let CRUX_STATE = 'idle';
 let CRUX_ERROR = null;
 let PERF_STRATEGY = 'mobile';
+
+async function persistAvailablePerformance() {
+  if (!DATA?.page?.url) return;
+  const lab = Object.entries(PSI).flatMap(([strategy, result]) => result?.ok ? [{ ...result, source: 'LAB', strategy }] : []);
+  const field = Object.entries(PSI).flatMap(([strategy, result]) => {
+    const direct = CRUX[strategy];
+    if (direct?.ok) return [{ ...direct, source: 'FIELD', strategy }];
+    return result?.fieldFromPsi ? [{ source: 'FIELD', strategy, data: result.fieldFromPsi, metrics: result.fieldFromPsi.metrics || {} }] : [];
+  });
+  await chrome.storage.local.set({
+    sccLatestPerformance: {
+      url: DATA.page.url,
+      savedAt: Date.now(),
+      performance: {
+        live: DATA.live ? { source: 'LIVE', strategy: 'browser', data: DATA.live } : null,
+        lab,
+        field,
+      },
+    },
+  });
+}
 let PLAN = null;
 let USAGE = null;
 
@@ -1427,6 +1448,7 @@ async function runPageSpeed(strategy, force) {
     if (cached) {
       PSI[strategy] = cached.result; PSI_STATE[strategy] = 'done';
       PSI_META[strategy] = { fromCache: true, ageMs: cached.ageMs };
+      await persistAvailablePerformance();
       toast('Showing your last cached result — daily limit reached for new checks.');
       render();
       return;
@@ -1486,6 +1508,7 @@ async function runPageSpeed(strategy, force) {
     PSI[strategy] = outcome.result;
     PSI_STATE[strategy] = 'done';
     PSI_META[strategy] = { fromCache: outcome.fromCache, ageMs: outcome.ageMs, viaBackend: useBackend };
+    await persistAvailablePerformance();
     // Only a request that actually reached Google spends a usage unit — never
     // a cache hit, a dedup join, or a request blocked before it was sent.
     if (outcome.spentRequest) {
@@ -1512,7 +1535,7 @@ async function queryCrux(strategy) {
   }
   CRUX_STATE = 'running';
   const res = await sccQueryCrux(DATA.page.url, strategy, SETTINGS_KEYS.crux);
-  if (res.ok) { CRUX[strategy] = res; CRUX_STATE = 'done'; }
+  if (res.ok) { CRUX[strategy] = res; CRUX_STATE = 'done'; await persistAvailablePerformance(); }
   else { CRUX_ERROR = res; CRUX_STATE = 'error'; }
   render();
 }

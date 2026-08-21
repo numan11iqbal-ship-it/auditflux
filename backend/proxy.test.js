@@ -26,9 +26,9 @@ const origLog = console.log, origErr = console.error;
 console.log = (...a) => { consoleBuffer.push(a.join(' ')); origLog(...a); };
 console.error = (...a) => { consoleBuffer.push(a.join(' ')); origErr(...a); };
 
-const { config, redact } = require('../src/config');
-const { makeCache } = require('../src/cache');
-const { makeInflight, makeRateLimiter } = require('../src/guard');
+const { config, redact } = require('./config');
+const { makeCache } = require('./cache');
+const { makeInflight, makeRateLimiter } = require('./guard');
 
 function get(port, path) {
   return new Promise((resolve, reject) => {
@@ -96,7 +96,7 @@ function get(port, path) {
   }
 
   console.log('\n=== Live HTTP: status endpoint never reveals the key ===');
-  const { app } = require('../src/index.js');
+  const { app } = require('./index.js');
   const server = app.listen(0);
   const port = server.address().port;
 
@@ -127,9 +127,9 @@ function get(port, path) {
 
   console.log('\n=== Live HTTP: missing key is an honest state, not fake data ===');
   delete process.env.PAGESPEED_API_KEY;
-  delete require.cache[require.resolve('../src/config')];
-  delete require.cache[require.resolve('../src/index.js')];
-  const { app: app2 } = require('../src/index.js');
+  delete require.cache[require.resolve('./config')];
+  delete require.cache[require.resolve('./index.js')];
+  const { app: app2 } = require('./index.js');
   const server2 = app2.listen(0);
   const port2 = server2.address().port;
 

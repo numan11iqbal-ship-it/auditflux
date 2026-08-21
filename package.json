@@ -4,7 +4,13 @@
   "private": true,
   "description": "AuditFlux browser extension and backend proxy",
   "scripts": {
+    "build": "pnpm --dir web/dashboard run build",
     "verify:no-secrets": "node backend/verify-no-secrets.js",
     "test:backend": "node --test backend/proxy.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
   }
 }

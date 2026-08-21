@@ -9,6 +9,9 @@
     "scripting",
     "storage"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "Run an AuditFlux SEO audit on this page",
     "default_popup": "popup.html",
@@ -29,7 +32,17 @@
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "optional_host_permissions": [
+    "https://auditflux.vercel.app/*",
+    "https://auditflux-numi4.vercel.app/*",
+    "https://auditflux-git-main-numi4.vercel.app/*",
     "https://www.googleapis.com/*",
     "https://chromeuxreport.googleapis.com/*"
-  ]
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://auditflux.vercel.app/*",
+      "https://auditflux-numi4.vercel.app/*",
+      "https://auditflux-git-main-numi4.vercel.app/*"
+    ]
+  }
 }

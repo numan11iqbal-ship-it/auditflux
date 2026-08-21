@@ -38,6 +38,48 @@ function toast(msg) {
   t._timer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
+async function auditFluxConnection() {
+  const stored = await chrome.storage.session.get({ auditfluxConnection: null });
+  return stored.auditfluxConnection;
+}
+
+async function saveAuditToAuditFlux(openWhenSaved) {
+  if (!DATA || !AUDIT || !TAB) return toast('Run an audit before saving it');
+  const connection = await auditFluxConnection();
+  if (!connection?.apiBase || !connection?.accessToken) {
+    return toast('Sign in on the AuditFlux web app and choose Connect Extension first');
+  }
+  const backend = sccNormalizeBackendUrl(connection.apiBase);
+  if (!backend || !await sccRequestBackendPermission(backend)) return toast('Grant access to the AuditFlux API before saving');
+  const cached = await chrome.storage.local.get({ sccLatestSavedAudit: null });
+  let saved = cached.sccLatestSavedAudit;
+  if (!saved || saved.clientAuditId !== AUDIT.__auditfluxClientAuditId) {
+    const perfCache = await chrome.storage.local.get({ sccLatestPerformance: null });
+    const performance = perfCache.sccLatestPerformance?.url === DATA.page.url
+      ? perfCache.sccLatestPerformance.performance
+      : null;
+    const payload = AUDITFLUX_CONTRACT.normalizeAudit({ data: DATA, audit: AUDIT, tab: TAB, performance });
+    AUDIT.__auditfluxClientAuditId = payload.clientAuditId;
+    try {
+      const response = await fetch(backend + '/api/audits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + connection.accessToken },
+        body: JSON.stringify(payload)
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.auditId) return toast(body?.error || 'AuditFlux could not save this audit');
+      saved = { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: backend, savedAt: Date.now() };
+      await chrome.storage.local.set({ sccLatestSavedAudit: saved });
+      await chrome.runtime.sendMessage({ type: 'auditflux:register-audit', auditId: body.auditId, tabId: TAB.id, windowId: TAB.windowId, url: DATA.page.url });
+      toast(body.duplicate ? 'This audit was already saved' : 'Audit saved to AuditFlux');
+    } catch { return toast('AuditFlux backend unavailable'); }
+  }
+  if (openWhenSaved) {
+    chrome.tabs.create({ url: saved.apiBase + '/audit/' + encodeURIComponent(saved.auditId) });
+    window.close();
+  }
+}
+
 function showState(which) {
   $('#loadingState').classList.toggle('hidden', which !== 'loading');
   $('#errorState').classList.toggle('hidden', which !== 'error');
@@ -396,7 +438,9 @@ function viewActions() {
         ${act('copyReport', '¶', 'Copy report', 'Plain text, ready to send to a client')}
         ${act('copyUrl', 'U', 'Copy page URL', 'The current address')}
         ${act('csvIssues', '↓', 'Export issues CSV', `${AUDIT.issues.length + AUDIT.passed.length} rows`)}
-        ${act('dashboard', '⤢', 'Open full report', 'Headings, links, images, schema, source')}
+        ${act('saveAudit', '⇧', 'Save to AuditFlux', 'Persist this real audit to your workspace')}
+        ${act('openSaasAudit', '⤢', 'Open SaaS report', 'Save, then open the full AuditFlux report')}
+        ${act('dashboard', '▣', 'Open extension report', 'Local extension view for this scan')}
         ${act('performance', '⚡', 'Run PageSpeed', 'Lighthouse scores and Core Web Vitals')}
         ${act('pricing', '★', 'Plans and usage', PLAN ? esc(PLAN.name) + ' plan' : 'Free plan')}
       </div>
@@ -458,6 +502,8 @@ function bindPanel() {
     if (a === 'canonical') return open(DATA.head.canonical);
     if (a === 'source') return openDashboard('source');
     if (a === 'dashboard') return openDashboard();
+    if (a === 'saveAudit') return saveAuditToAuditFlux(false);
+    if (a === 'openSaasAudit') return saveAuditToAuditFlux(true);
     if (a === 'performance') return openDashboard('performance');
     if (a === 'pricing') return chrome.tabs.create({ url: chrome.runtime.getURL('pricing.html') });
     if (a === 'copyUrl') return copyText(DATA.page.url, 'Page URL copied');
