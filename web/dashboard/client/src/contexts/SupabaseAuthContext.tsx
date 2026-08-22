@@ -1,6 +1,7 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
+import { stabilizeSession } from '@/lib/stable-session';
 
 type AuthContextValue = {
   configured: boolean;
@@ -16,11 +17,23 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const stabilizing = useRef(false);
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setLoading(false); });
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => { setSession(next); setLoading(false); });
-    return () => subscription.subscription.unsubscribe();
+    let active = true;
+    const applyStableSession = async (next: Session | null) => {
+      stabilizing.current = true;
+      setLoading(true);
+      const resolved = await stabilizeSession(supabase, next);
+      if (active) { setSession(resolved); setLoading(false); }
+      stabilizing.current = false;
+    };
+    supabase.auth.getSession().then(({ data }) => void applyStableSession(data.session));
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (stabilizing.current) return;
+      void applyStableSession(next);
+    });
+    return () => { active = false; subscription.subscription.unsubscribe(); };
   }, []);
   const value = useMemo<AuthContextValue>(() => ({
     configured: supabaseConfigured,
