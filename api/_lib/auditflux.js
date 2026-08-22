@@ -9,18 +9,31 @@ function required(name) {
   return value;
 }
 
+function supabaseServerConfig() {
+  const explicitUrl = process.env.AUDITFLUX_SUPABASE_URL;
+  const explicitServiceRoleKey = process.env.AUDITFLUX_SUPABASE_SERVICE_ROLE_KEY;
+  const source = explicitUrl && explicitServiceRoleKey ? 'auditflux' : 'integration';
+  return {
+    url: explicitUrl || required('SUPABASE_URL'),
+    serviceRoleKey: explicitServiceRoleKey || required('SUPABASE_SERVICE_ROLE_KEY'),
+    source,
+  };
+}
+
 function adminClient() {
-  return createClient(required('SUPABASE_URL'), required('SUPABASE_SERVICE_ROLE_KEY'), {
+  const { url, serviceRoleKey } = supabaseServerConfig();
+  return createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 
 function publicRuntimeStatus() {
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const configured = Boolean((process.env.AUDITFLUX_SUPABASE_URL && process.env.AUDITFLUX_SUPABASE_SERVICE_ROLE_KEY) || (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY));
+  const supabaseUrl = process.env.AUDITFLUX_SUPABASE_URL || process.env.SUPABASE_URL;
   let supabaseHost = null;
   try { supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : null; } catch { supabaseHost = null; }
   return {
-    supabase: { configured: Boolean(supabaseUrl && process.env.SUPABASE_SERVICE_ROLE_KEY), host: supabaseHost },
+    supabase: { configured, host: supabaseHost, source: process.env.AUDITFLUX_SUPABASE_URL && process.env.AUDITFLUX_SUPABASE_SERVICE_ROLE_KEY ? 'auditflux' : 'integration' },
     pagespeed: { configured: Boolean(process.env.PAGESPEED_API_KEY) },
     crux: { configured: Boolean(process.env.CRUX_API_KEY) },
   };
@@ -203,4 +216,4 @@ async function loadAudit(req, auditId) {
 
 function failure(res, error) { json(res, error.status || 500, { error: error.message || 'AuditFlux API request failed.' }); }
 
-module.exports = { adminClient, applyCors, json, parseBody, requireUser, workspaceFor, safeHttpUrl, hostName, persistAudit, loadAudit, ownedAudit, failure, publicRuntimeStatus };
+module.exports = { adminClient, applyCors, json, parseBody, requireUser, workspaceFor, safeHttpUrl, hostName, persistAudit, loadAudit, ownedAudit, failure, publicRuntimeStatus, supabaseServerConfig };
