@@ -10,7 +10,16 @@ async function registry() {
 
 async function saveRegistry(next) { await chrome.storage.local.set({ [REGISTRY_KEY]: next }); }
 
+function handleConnection(message, sendResponse) {
+  if (message?.type !== 'auditflux:connection') return false;
+  chrome.storage.session.set({ [SESSION_KEY]: { apiBase: message.apiBase, accessToken: message.accessToken, connectedAt: Date.now() } })
+    .then(() => sendResponse({ ok: true }))
+    .catch(error => sendResponse({ ok: false, error: error.message }));
+  return true;
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (handleConnection(message, sendResponse)) return true;
   if (message?.type === 'auditflux:register-audit') {
     registry().then(async records => {
       records[message.auditId] = { tabId: message.tabId, windowId: message.windowId, url: message.url, savedAt: Date.now() };
@@ -19,15 +28,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }).catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
   }
-  if (message?.type === 'auditflux:connection') {
-    chrome.storage.session.set({ [SESSION_KEY]: { apiBase: message.apiBase, accessToken: message.accessToken, connectedAt: Date.now() } })
-      .then(() => sendResponse({ ok: true }))
-      .catch(error => sendResponse({ ok: false, error: error.message }));
-    return true;
-  }
 });
 
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (handleConnection(message, sendResponse)) return true;
   if (message?.type !== 'auditflux:locate' || !message.auditId || !message.locator) return;
   (async () => {
     const records = await registry();
