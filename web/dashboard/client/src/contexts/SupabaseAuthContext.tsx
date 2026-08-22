@@ -19,17 +19,18 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const stabilizing = useRef(false);
   useEffect(() => {
-    if (!supabase) { setLoading(false); return; }
+    const client = supabase;
+    if (!client) { setLoading(false); return; }
     let active = true;
     const applyStableSession = async (next: Session | null) => {
       stabilizing.current = true;
       setLoading(true);
-      const resolved = await stabilizeSession(supabase, next);
+      const resolved = await stabilizeSession(client, next);
       if (active) { setSession(resolved); setLoading(false); }
       stabilizing.current = false;
     };
-    supabase.auth.getSession().then(({ data }) => void applyStableSession(data.session));
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
+    client.auth.getSession().then(({ data }) => void applyStableSession(data.session));
+    const { data: subscription } = client.auth.onAuthStateChange((_event, next) => {
       if (stabilizing.current) return;
       void applyStableSession(next);
     });
