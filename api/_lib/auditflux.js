@@ -15,6 +15,17 @@ function adminClient() {
   });
 }
 
+function publicRuntimeStatus() {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  let supabaseHost = null;
+  try { supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : null; } catch { supabaseHost = null; }
+  return {
+    supabase: { configured: Boolean(supabaseUrl && process.env.SUPABASE_SERVICE_ROLE_KEY), host: supabaseHost },
+    pagespeed: { configured: Boolean(process.env.PAGESPEED_API_KEY) },
+    crux: { configured: Boolean(process.env.CRUX_API_KEY) },
+  };
+}
+
 function json(res, status, body) {
   res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8').end(JSON.stringify(body));
 }
@@ -192,4 +203,4 @@ async function loadAudit(req, auditId) {
 
 function failure(res, error) { json(res, error.status || 500, { error: error.message || 'AuditFlux API request failed.' }); }
 
-module.exports = { adminClient, applyCors, json, parseBody, requireUser, workspaceFor, safeHttpUrl, hostName, persistAudit, loadAudit, ownedAudit, failure };
+module.exports = { adminClient, applyCors, json, parseBody, requireUser, workspaceFor, safeHttpUrl, hostName, persistAudit, loadAudit, ownedAudit, failure, publicRuntimeStatus };
