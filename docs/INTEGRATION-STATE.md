@@ -16,10 +16,13 @@ The existing Vercel project has the following variables in its Production and Pr
 |---|---|
 | `VITE_SUPABASE_URL` | Browser-facing Supabase endpoint |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Browser-facing Supabase key, protected by RLS |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Vercel API credential |
+| `AUDITFLUX_SUPABASE_URL` | Explicit server-side endpoint for the dedicated AuditFlux Supabase project |
+| `AUDITFLUX_SUPABASE_SERVICE_ROLE_KEY` | Explicit server-only credential for the dedicated AuditFlux Supabase project |
 | `AUDITFLUX_SITE_URL` | Canonical Vercel site URL for API CORS |
 | `VITE_AUDITFLUX_EXTENSION_ID` | Installed AuditFlux Chrome extension bridge identifier |
 | `AUDITFLUX_EXTENSION_ORIGIN` | Restricted Chrome extension origin for API CORS |
+| `PAGESPEED_API_KEY` | Server-only PageSpeed Insights proxy credential |
+| `CRUX_API_KEY` | Server-only Chrome UX Report proxy credential |
 
 ## Production path
 
@@ -27,12 +30,22 @@ The existing Vercel project has the following variables in its Production and Pr
 
 The repository-root `api/` directory is the sole production API path. The legacy `backend/` proxy is retained only as a repaired local compatibility layer and must not be deployed independently.
 
-## Remaining validation boundary
+## Completed production validation
 
-The production connection, secure configuration, and local tests have been verified. A user-authenticated browser run is still required to prove one live audit save, audit-detail retrieval, a second distinct audit in history, and issue location in the originating tab using real website data.
+The user-authenticated production flow was verified with the installed AuditFlux Chrome extension (version 5.2.1) and the existing Vercel/Supabase resources only. No new repository, Vercel project, Supabase project, database reset, or production dependency on a Manus URL was introduced.
+
+| Validation step | Verified production evidence |
+|---|---|
+| Fresh authenticated workspace | A fresh Supabase sign-in loaded protected projects and history without the prior JWT-time or 401 failure. |
+| Extension bridge | The dashboard displayed **Extension connected** after a successful external handshake with the installed extension ID. |
+| Real audit persistence | A live extension save generated `POST /api/audits` with HTTP `201` and a secret-safe `audit_persisted` runtime event. The event logged only an audit UUID and duplicate flag. |
+| Full report retrieval | Saved audit IDs `5c905591-0f3d-4259-ac94-6ba052a44dd2` and `b580fd53-be1a-4555-b68b-d07eeb68a801` each loaded as full production reports with real category scores and evidence. |
+| Re-scan history | The authenticated history page displayed separate records for the same live target at distinct capture times, with scores of 67 and 70. |
+| Issue location | A saved accessibility issue returned the explicit result **Located and highlighted in the audited tab**, which is emitted only after the extension confirms that its locator executed successfully. |
+| Wide dashboard layout | `DashboardLayout.tsx` uses a full-width main container (`w-full min-w-0`) and responsive horizontal padding with no maximum-width constraint. The full production Issues view was exercised at desktop width. |
+
+The dark navy/slate theme with the neon-green AuditFlux accent is active in production. The dashboard logo remains the built-in `AF` badge and AuditFlux wordmark; a custom logo asset is not yet wired into this dashboard component.
 
 ## Deployment release status
 
-The previous production deployment was blocked by a non-matching Git commit email. A forward-only commit authored with the GitHub-recognized address was pushed after explicit authorization. The existing Vercel project accepted deployment `dpl_9UfCdhihd41DpEza7emKk6qMbev6` for commit `6deb565` and reached `READY` for production. The canonical dashboard loads and presents the expected Supabase Auth screen. No new Vercel project was created.
-
-The production `/api/status` endpoint returns `ok: true`, but reports both `pagespeed.configured: false` and `crux.configured: false`. The required server-side performance credentials have not yet been supplied; no credential value has been written to source control or displayed in documentation.
+The GitHub author identity was repaired through forward-only commits using `282272617+numan11iqbal-ship-it@users.noreply.github.com`. The latest validation-related production release was deployment `dpl_AhLSqy2oNXXE89qpq9mzUwwfVtpR` for commit `51d7d10`, which reached `READY` and emitted the verified non-secret audit persistence event. The canonical dashboard loads with Supabase Auth, its dedicated Supabase server configuration, PageSpeed/CrUX server configuration, and the installed extension bridge. No new Vercel project was created.
