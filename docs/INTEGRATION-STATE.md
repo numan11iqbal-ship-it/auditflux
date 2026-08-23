@@ -77,3 +77,5 @@ The popup's **Full report** control now saves the current real audit through the
 ### Popup constraint repair
 
 Extension release `5.3.1` corrects the earlier desktop-width popup treatment. The action popup is now constrained to realistic 320px–600px widths, has no root horizontal scroll, and uses a compact branded header, wrapped three-to-five action command area, and an overflow **More** menu. The overview presents the real SEO score first and uses responsive one- or two-column real audit metric cards. Detailed tables retain local scroll containers only; URLs and evidence wrap inside their owning panel. The radar loader is compact and respects reduced-motion preferences. All audit actions, heading location, Re-scan, and the canonical SaaS **Full report** handoff remain intact.
+
+Extension release `5.3.2` corrects a subsequent popup runtime defect in the **More** menu: active-state evaluation is now a shared function available to both the visible command buttons and the menu renderer. This prevents the scope error that could interrupt popup rendering after a successful audit.

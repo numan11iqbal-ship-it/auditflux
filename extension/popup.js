@@ -293,8 +293,7 @@ function renderQuickCommand() {
   const command = $('#quickCommand');
   if (!command || !DATA || !AUDIT || !window.AUDITFLUX_QUICK_ACTIONS) return;
   const actions = AUDITFLUX_QUICK_ACTIONS.commandItems(DATA, AUDIT);
-  const active = (item) => activeTab === item.id || (item.filter && activeTab === 'issues' && issueFilter === item.filter);
-  const chip = (item) => `<button class="quick-action ${active(item) ? 'is-active' : ''}" data-view="${item.id}" data-filter="${item.filter || ''}" data-priority="${item.priority}" title="${esc(item.title)}" aria-pressed="${active(item)}">
+  const chip = (item) => `<button class="quick-action ${isQuickActionActive(item) ? 'is-active' : ''}" data-view="${item.id}" data-filter="${item.filter || ''}" data-priority="${item.priority}" title="${esc(item.title)}" aria-pressed="${isQuickActionActive(item)}">
     <span class="qa-icon" aria-hidden="true">${esc(item.icon)}</span><span class="qa-label">${esc(item.label)}</span><span class="qa-short">${esc(item.shortLabel)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`;
   command.classList.remove('hidden');
   command.innerHTML = `${actions.map(chip).join('')}<div class="quick-more-wrap"><button class="quick-more" id="quickMore" aria-expanded="false">More ▾</button><div class="quick-more-menu hidden" id="quickMoreMenu"></div></div>`;
@@ -313,6 +312,10 @@ function renderQuickCommand() {
   requestAnimationFrame(() => syncQuickOverflow(actions));
 }
 
+function isQuickActionActive(item) {
+  return activeTab === item.id || (item.filter && activeTab === 'issues' && issueFilter === item.filter);
+}
+
 function syncQuickOverflow(actions) {
   const menu = $('#quickMoreMenu'); const wrap = document.querySelector('.quick-more-wrap');
   if (!menu || !wrap) return;
@@ -321,7 +324,7 @@ function syncQuickOverflow(actions) {
     return !button || getComputedStyle(button).display === 'none';
   });
   wrap.classList.remove('hidden');
-  menu.innerHTML = hidden.map(item => `<button class="quick-more-item ${active(item) ? 'is-active' : ''}" data-quick-view="${item.id}" data-quick-filter="${item.filter || ''}"><span>${esc(item.label)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`).join('');
+  menu.innerHTML = hidden.map(item => `<button class="quick-more-item ${isQuickActionActive(item) ? 'is-active' : ''}" data-quick-view="${item.id}" data-quick-filter="${item.filter || ''}"><span>${esc(item.label)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`).join('');
   menu.querySelectorAll('[data-quick-view]').forEach(button => button.addEventListener('click', () => {
     const filter = button.dataset.quickFilter;
     const view = AUDITFLUX_QUICK_ACTIONS.sectionView(button.dataset.quickView);
