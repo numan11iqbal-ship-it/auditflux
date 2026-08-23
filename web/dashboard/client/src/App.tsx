@@ -5,7 +5,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { SupabaseAuthProvider } from "./contexts/SupabaseAuthContext";
-import Home from "./pages/Home";
+import Home from "./pages/UnifiedHome";
 
 function Router() {
   return (
@@ -21,8 +21,11 @@ function Router() {
       <Route path="/accessibility" component={Home} />
       <Route path="/technical" component={Home} />
       <Route path="/resources" component={Home} />
+      <Route path="/security" component={Home} />
+      <Route path="/source" component={Home} />
       <Route path="/projects" component={Home} />
       <Route path="/reports" component={Home} />
+      <Route path="/audit/:id/:section" component={Home} />
       <Route path="/audit/:id" component={Home} />
       <Route path="/history" component={Home} />
       <Route path="/performance" component={Home} />

@@ -82,7 +82,7 @@ async function saveAuditToAuditFlux(openWhenSaved) {
   if (openWhenSaved) {
     // API connectivity may be configured from a Vercel deployment alias. Open
     // reports on the canonical origin so the user’s existing SaaS login is used.
-    chrome.tabs.create({ url: auditFluxWebAppUrl('/audit/' + encodeURIComponent(saved.auditId)) });
+    chrome.tabs.create({ url: auditFluxWebAppUrl('/audit/' + encodeURIComponent(saved.auditId) + '/overview') });
     window.close();
   }
 }

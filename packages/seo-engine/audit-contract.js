@@ -116,6 +116,7 @@
       llms: data.llms,
       wellKnown: data.wellKnown,
       rendering: data.rendering,
+      source: data.source,
     });
 
     const performancePayload = cloneWithoutSecrets(performance || {
