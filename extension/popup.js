@@ -18,6 +18,7 @@ let overlayOn = false;
 let PLAN = null;
 let USAGE = null;
 let AUDIT_BLOCKED = null;
+let CURRENT_AUDIT_SAVE = null;
 
 const $ = (s) => document.querySelector(s);
 const AUDITFLUX_WEB_APP_ORIGIN = 'https://auditflux.vercel.app';
@@ -62,19 +63,30 @@ function openSavedReport(auditId, tabId) {
   return chrome.tabs.create({ url });
 }
 
-async function saveAuditToAuditFlux(openWhenSaved, reportTabId) {
-  if (!DATA || !AUDIT || !TAB) return toast('Run an audit before saving it');
-  const cached = await chrome.storage.local.get({ sccLatestSavedAudit: null });
-  let saved = cached.sccLatestSavedAudit;
+function sameAuditUrl(left, right) {
+  try { return new URL(left).href === new URL(right).href; } catch { return false; }
+}
+
+async function currentAuditPayload() {
+  if (!DATA || !AUDIT || !TAB?.id || !TAB.url) throw new Error('Run an audit before saving it.');
+  const auditedTab = await chrome.tabs.get(TAB.id);
+  if (!auditedTab || !sameAuditUrl(auditedTab.url, TAB.url)) throw new Error('The audited tab changed. Reopen AuditFlux on the current page and run a fresh audit.');
   const perfCache = await chrome.storage.local.get({ sccLatestPerformance: null });
-  const performance = perfCache.sccLatestPerformance?.url === DATA.page.url
-    ? perfCache.sccLatestPerformance.performance
-    : null;
+  const performance = perfCache.sccLatestPerformance?.url === DATA.page.url ? perfCache.sccLatestPerformance.performance : null;
   const payload = AUDITFLUX_CONTRACT.normalizeAudit({ data: DATA, audit: AUDIT, tab: TAB, performance });
+  if (payload.tab?.tabId !== TAB.id || !sameAuditUrl(payload.url, DATA.page.url) || !sameAuditUrl(payload.tab?.url, TAB.url)) throw new Error('The current audit snapshot does not match the active tab. Run the audit again.');
+  return payload;
+}
+
+async function saveAuditToAuditFlux(openWhenSaved, reportTabId) {
+  let payload;
+  try { payload = await currentAuditPayload(); } catch (error) { return toast(error?.message || 'Run an audit before saving it'); }
+  const saveKey = `${payload.tab?.tabId}:${payload.url}:${payload.capturedAt}`;
+  let saved = CURRENT_AUDIT_SAVE?.key === saveKey ? CURRENT_AUDIT_SAVE.saved : null;
   AUDIT.__auditfluxClientAuditId = payload.clientAuditId;
-  if (saved?.clientAuditId === payload.clientAuditId && openWhenSaved) {
-    await openSavedReport(saved.auditId, reportTabId);
-    return window.close();
+  if (saved) {
+    if (openWhenSaved) { await openSavedReport(saved.auditId, reportTabId); return window.close(); }
+    return toast('This current-tab audit is already saved to AuditFlux');
   }
   const connection = await auditFluxConnection();
   if (!connection?.apiBase || (!connection?.accessToken && !connection?.sessionToken)) {
@@ -86,22 +98,22 @@ async function saveAuditToAuditFlux(openWhenSaved, reportTabId) {
   }
   const backend = sccNormalizeBackendUrl(connection.apiBase);
   if (!backend || !await sccRequestBackendPermission(backend)) return toast('Grant access to the AuditFlux API before saving');
-  if (!saved || saved.clientAuditId !== payload.clientAuditId) {
-    try {
-      const response = await fetch(backend + '/api/audits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...auditFluxSessionHeaders(connection) },
-        body: JSON.stringify(payload)
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok || !body?.auditId) return toast(body?.error || 'AuditFlux could not save this audit');
-      saved = { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: backend, savedAt: Date.now() };
-      await chrome.storage.local.set({ sccLatestSavedAudit: saved });
-      chrome.runtime.sendMessage({ type: 'auditflux:audit-saved', auditId: body.auditId, url: DATA.page.url }).catch(() => null);
-      await chrome.runtime.sendMessage({ type: 'auditflux:register-audit', auditId: body.auditId, tabId: TAB.id, windowId: TAB.windowId, url: DATA.page.url });
-      toast(body.duplicate ? 'This audit was already saved' : 'Audit saved to AuditFlux');
-    } catch { return toast('AuditFlux backend unavailable'); }
-  }
+  try {
+    const response = await fetch(backend + '/api/audits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auditFluxSessionHeaders(connection) },
+      body: JSON.stringify(payload)
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !body?.auditId) return toast(body?.error || 'AuditFlux could not save this audit');
+    if (body.clientAuditId !== payload.clientAuditId || !sameAuditUrl(body.auditUrl, payload.url)) return toast('AuditFlux rejected a mismatched saved audit. Reopen the extension and run the current page again.');
+    saved = { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: backend, url: payload.url, tabId: payload.tab?.tabId ?? null, savedAt: Date.now() };
+    CURRENT_AUDIT_SAVE = { key: saveKey, saved };
+    await chrome.storage.local.set({ sccLatestSavedAudit: saved });
+    chrome.runtime.sendMessage({ type: 'auditflux:audit-saved', auditId: body.auditId, url: DATA.page.url }).catch(() => null);
+    await chrome.runtime.sendMessage({ type: 'auditflux:register-audit', auditId: body.auditId, tabId: TAB.id, windowId: TAB.windowId, url: DATA.page.url });
+    toast(body.duplicate ? 'This audit was already saved' : 'Audit saved to AuditFlux');
+  } catch { return toast('AuditFlux backend unavailable'); }
   if (openWhenSaved) {
     // API connectivity may be configured from a Vercel deployment alias. Open
     // reports on the canonical origin so the user’s existing SaaS login is used.
@@ -168,6 +180,7 @@ async function run() {
 
     DATA = injected[0].result;
     AUDIT = SCC_AUDIT(DATA);
+    CURRENT_AUDIT_SAVE = null;
 
     // The audit already ran, so record it. Counting before the work succeeds
     // would charge people for failures.

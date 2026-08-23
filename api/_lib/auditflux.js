@@ -215,15 +215,18 @@ async function persistAudit(req) {
   if (body.tab && typeof body.tab === 'object') body.tab.url = normalizeAuditUrl(body.tab.url) || normalizedUrl;
   const workspaceId = await workspaceFor(db, user.id);
   const project = await projectForAudit(db, user.id, workspaceId, body);
-  const { data: existing, error: existingError } = await db.from('audits').select('id').eq('client_audit_id', body.clientAuditId).maybeSingle();
+  const { data: existing, error: existingError } = await db.from('audits').select('id,url,client_audit_id').eq('client_audit_id', body.clientAuditId).maybeSingle();
   if (existingError) throw existingError;
-  if (existing) return { auditId: existing.id, projectId: project.id, duplicate: true };
+  if (existing) {
+    if (existing.url !== body.url) throw Object.assign(new Error('The existing audit identity belongs to a different URL. Run a fresh audit from the current tab.'), { status: 409 });
+    return { auditId: existing.id, projectId: project.id, duplicate: true, auditUrl: existing.url, clientAuditId: existing.client_audit_id };
+  }
   const { data: audit, error } = await db.from('audits').insert(auditRow(body, project, workspaceId, user.id)).select('id').single();
   if (error) throw error;
   await insertDetails(db, audit.id, body);
   const usage = await db.from('usage_records').insert({ workspace_id: workspaceId, user_id: user.id, operation: 'audit_saved', audit_id: audit.id });
   if (usage.error) throw usage.error;
-  return { auditId: audit.id, projectId: project.id, duplicate: false };
+  return { auditId: audit.id, projectId: project.id, duplicate: false, auditUrl: body.url, clientAuditId: body.clientAuditId };
 }
 
 async function ownedAudit(db, userId, auditId) {

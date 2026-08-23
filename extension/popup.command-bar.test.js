@@ -14,8 +14,15 @@ test('full report saves then opens the canonical signed-in Export & Report Cente
   assert.match(popup, /function openSavedReport\(auditId, tabId\) \{/);
   assert.match(popup, /chrome\.tabs\.update\(tabId, \{ url \}\)/);
   assert.match(popup, /auditflux:get-popup-connection/);
-  assert.match(popup, /const payload = AUDITFLUX_CONTRACT\.normalizeAudit\(\{ data: DATA, audit: AUDIT, tab: TAB, performance \}\)/);
-  assert.match(popup, /saved\?\.clientAuditId === payload\.clientAuditId && openWhenSaved/);
+  assert.match(popup, /async function currentAuditPayload\(\)/);
+  assert.match(popup, /chrome\.tabs\.get\(TAB\.id\)/);
+  assert.match(popup, /sameAuditUrl\(auditedTab\.url, TAB\.url\)/);
+  assert.match(popup, /AUDITFLUX_CONTRACT\.normalizeAudit\(\{ data: DATA, audit: AUDIT, tab: TAB, performance \}\)/);
+  assert.match(popup, /body\.clientAuditId !== payload\.clientAuditId/);
+  assert.match(popup, /sameAuditUrl\(body\.auditUrl, payload\.url\)/);
+  assert.doesNotMatch(popup, /chrome\.storage\.local\.get\(\{ sccLatestSavedAudit/);
+  assert.match(popup, /CURRENT_AUDIT_SAVE\?\.key === saveKey/);
+  assert.match(popup, /This current-tab audit is already saved to AuditFlux/);
   assert.match(popup, /auditFluxWebAppUrl\('\/connect-extension'\)/);
 });
 
