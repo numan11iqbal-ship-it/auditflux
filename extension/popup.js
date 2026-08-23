@@ -20,6 +20,11 @@ let USAGE = null;
 let AUDIT_BLOCKED = null;
 
 const $ = (s) => document.querySelector(s);
+const AUDITFLUX_WEB_APP_ORIGIN = 'https://auditflux.vercel.app';
+
+function auditFluxWebAppUrl(path = '/') {
+  return AUDITFLUX_WEB_APP_ORIGIN + path;
+}
 
 const esc = (v) => v === null || v === undefined ? '' : String(v)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -75,9 +80,20 @@ async function saveAuditToAuditFlux(openWhenSaved) {
     } catch { return toast('AuditFlux backend unavailable'); }
   }
   if (openWhenSaved) {
-    chrome.tabs.create({ url: saved.apiBase + '/audit/' + encodeURIComponent(saved.auditId) });
+    // API connectivity may be configured from a Vercel deployment alias. Open
+    // reports on the canonical origin so the user’s existing SaaS login is used.
+    chrome.tabs.create({ url: auditFluxWebAppUrl('/audit/' + encodeURIComponent(saved.auditId)) });
     window.close();
   }
+}
+
+async function openWebAppForCurrentAudit() {
+  const connection = await auditFluxConnection();
+  if (DATA && AUDIT && TAB && connection?.apiBase && connection?.accessToken) {
+    return saveAuditToAuditFlux(true);
+  }
+  chrome.tabs.create({ url: auditFluxWebAppUrl('/') });
+  window.close();
 }
 
 function showState(which) {
@@ -634,10 +650,7 @@ $('#errorRetry').addEventListener('click', run);
 const overlayButton = $('#overlayBtn');
 if (overlayButton) overlayButton.addEventListener('click', () => toggleOverlay().then(() => { if (activeTab === 'actions') render(); }));
 const webAppButton = $('#webAppBtn');
-if (webAppButton) webAppButton.addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://auditflux.vercel.app/' });
-  window.close();
-});
+if (webAppButton) webAppButton.addEventListener('click', () => void openWebAppForCurrentAudit());
 $('#dashboardBtn').addEventListener('click', () => saveAuditToAuditFlux(true));
 const planBadgeEl = $('#planBadge');
 if (planBadgeEl) planBadgeEl.addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('pricing.html') }));
