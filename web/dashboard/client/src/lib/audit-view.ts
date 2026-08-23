@@ -1,4 +1,4 @@
-export type AuditSection = 'overview' | 'issues' | 'headings' | 'links' | 'images' | 'schema' | 'geo' | 'performance' | 'accessibility' | 'technical' | 'security' | 'resources' | 'source' | 'history' | 'projects' | 'reports' | 'settings';
+export type AuditSection = 'overview' | 'issues' | 'headings' | 'links' | 'images' | 'schema' | 'geo' | 'performance' | 'accessibility' | 'technical' | 'security' | 'resources' | 'source' | 'history' | 'projects' | 'reports' | 'settings' | 'connect-extension';
 
 const auditSections = new Set<AuditSection>(['overview', 'issues', 'headings', 'links', 'images', 'schema', 'geo', 'performance', 'accessibility', 'technical', 'security', 'resources', 'source']);
 

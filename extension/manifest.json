@@ -2,12 +2,15 @@
   "manifest_version": 3,
   "name": "AuditFlux SEO",
   "short_name": "AuditFlux SEO",
-  "version": "5.4.0",
+  "version": "5.5.0",
   "description": "Audit any page for technical SEO, on-page, headings, links, images, schema, performance, accessibility and AI/GEO readiness.",
   "permissions": [
     "activeTab",
     "scripting",
     "storage"
+  ],
+  "host_permissions": [
+    "https://auditflux.vercel.app/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -32,7 +35,6 @@
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "optional_host_permissions": [
-    "https://auditflux.vercel.app/*",
     "https://auditflux-numi4.vercel.app/*",
     "https://auditflux-git-main-numi4.vercel.app/*",
     "https://www.googleapis.com/*",
@@ -44,5 +46,14 @@
       "https://auditflux-numi4.vercel.app/*",
       "https://auditflux-git-main-numi4.vercel.app/*"
     ]
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://auditflux.vercel.app/*"
+      ],
+      "js": ["content/saas-bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
 }

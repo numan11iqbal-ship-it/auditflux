@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { safeHttpUrl, hostName, publicRuntimeStatus, supabaseServerConfig } = require('./auditflux');
+const { safeHttpUrl, hostName, publicRuntimeStatus, supabaseServerConfig, extensionSessionIdentityFor } = require('./auditflux');
 
 test('accepts publicly routable http URLs and normalizes their host name', () => {
   const url = safeHttpUrl('https://www.example.com/path?q=1');
@@ -75,4 +75,16 @@ test('dedicated AuditFlux Supabase configuration overrides integration-managed v
     if (original.auditfluxUrl === undefined) delete process.env.AUDITFLUX_SUPABASE_URL; else process.env.AUDITFLUX_SUPABASE_URL = original.auditfluxUrl;
     if (original.auditfluxRole === undefined) delete process.env.AUDITFLUX_SUPABASE_SERVICE_ROLE_KEY; else process.env.AUDITFLUX_SUPABASE_SERVICE_ROLE_KEY = original.auditfluxRole;
   }
+});
+
+test('extension sessions identify only connected, unexpired, and unrevoked browser installations', async () => {
+  const now = '2026-08-23T12:00:00.000Z'; const writes = [];
+  const query = response => ({ select: () => query(response), eq: () => query(response), maybeSingle: async () => response, update: value => { writes.push(value); return query({ data: null, error: null }); } });
+  const activeDb = { from: table => table === 'extension_sessions' ? query({ data: { id: 'session-1', connection_id: 'connection-1', expires_at: '2026-08-23T13:00:00.000Z', revoked_at: null }, error: null }) : query({ data: { id: 'connection-1', user_id: 'user-1', workspace_id: 'workspace-1', status: 'connected' }, error: null }) };
+  const identity = await extensionSessionIdentityFor(activeDb, 'short-lived-token', now);
+  assert.equal(identity.user.id, 'user-1'); assert.equal(identity.extensionConnection.workspace_id, 'workspace-1'); assert.equal(writes.length, 2);
+  const expiredDb = { from: () => query({ data: { id: 'session-1', connection_id: 'connection-1', expires_at: '2026-08-23T11:59:59.000Z', revoked_at: null }, error: null }) };
+  await assert.rejects(() => extensionSessionIdentityFor(expiredDb, 'short-lived-token', now), error => error.status === 401);
+  const revokedDb = { from: () => query({ data: { id: 'session-1', connection_id: 'connection-1', expires_at: '2026-08-23T13:00:00.000Z', revoked_at: now }, error: null }) };
+  await assert.rejects(() => extensionSessionIdentityFor(revokedDb, 'short-lived-token', now), error => error.status === 401);
 });

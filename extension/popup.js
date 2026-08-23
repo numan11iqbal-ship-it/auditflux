@@ -48,10 +48,14 @@ async function auditFluxConnection() {
   return stored.auditfluxConnection;
 }
 
+function auditFluxSessionHeaders(connection) {
+  return connection?.sessionToken ? { 'X-AuditFlux-Extension-Session': connection.sessionToken } : connection?.accessToken ? { Authorization: 'Bearer ' + connection.accessToken } : {};
+}
+
 async function saveAuditToAuditFlux(openWhenSaved) {
   if (!DATA || !AUDIT || !TAB) return toast('Run an audit before saving it');
   const connection = await auditFluxConnection();
-  if (!connection?.apiBase || !connection?.accessToken) {
+  if (!connection?.apiBase || (!connection?.accessToken && !connection?.sessionToken)) {
     return toast('Sign in on the AuditFlux web app and choose Connect Extension first');
   }
   const backend = sccNormalizeBackendUrl(connection.apiBase);
@@ -68,7 +72,7 @@ async function saveAuditToAuditFlux(openWhenSaved) {
     try {
       const response = await fetch(backend + '/api/audits', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + connection.accessToken },
+        headers: { 'Content-Type': 'application/json', ...auditFluxSessionHeaders(connection) },
         body: JSON.stringify(payload)
       });
       const body = await response.json().catch(() => null);
@@ -82,14 +86,14 @@ async function saveAuditToAuditFlux(openWhenSaved) {
   if (openWhenSaved) {
     // API connectivity may be configured from a Vercel deployment alias. Open
     // reports on the canonical origin so the user’s existing SaaS login is used.
-    chrome.tabs.create({ url: auditFluxWebAppUrl('/audit/' + encodeURIComponent(saved.auditId) + '/overview') });
+    chrome.tabs.create({ url: auditFluxWebAppUrl('/audit/' + encodeURIComponent(saved.auditId) + '/reports') });
     window.close();
   }
 }
 
 async function openWebAppForCurrentAudit() {
   const connection = await auditFluxConnection();
-  if (DATA && AUDIT && TAB && connection?.apiBase && connection?.accessToken) {
+  if (DATA && AUDIT && TAB && connection?.apiBase && (connection?.accessToken || connection?.sessionToken)) {
     return saveAuditToAuditFlux(true);
   }
   chrome.tabs.create({ url: auditFluxWebAppUrl('/') });

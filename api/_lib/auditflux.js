@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
 const { cloneWithoutSecrets } = require('../../packages/seo-engine/audit-contract');
 
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
@@ -45,11 +46,11 @@ function json(res, status, body) {
 
 function applyCors(req, res) {
   const origin = req.headers.origin;
-  const allowed = [process.env.AUDITFLUX_SITE_URL, process.env.AUDITFLUX_EXTENSION_ORIGIN].filter(Boolean);
+  const allowed = [process.env.AUDITFLUX_SITE_URL, 'https://auditflux.vercel.app', process.env.AUDITFLUX_EXTENSION_ORIGIN].filter(Boolean);
   if (origin && allowed.includes(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type,X-AuditFlux-Extension-Session');
   if (req.method === 'OPTIONS') { res.status(204).end(); return true; }
   return false;
 }
@@ -65,7 +66,28 @@ function bearer(req) {
   return match ? match[1] : null;
 }
 
+function extensionSessionHash(value) { return crypto.createHash('sha256').update(String(value)).digest('hex'); }
+
+async function extensionSessionIdentityFor(db, token, now = new Date().toISOString()) {
+  if (typeof token !== 'string' || !token) return null;
+  const { data: session, error } = await db.from('extension_sessions').select('id,connection_id,expires_at,revoked_at').eq('token_hash', extensionSessionHash(token)).maybeSingle();
+  if (error) throw error;
+  if (!session || session.revoked_at || session.expires_at <= now) throw Object.assign(new Error('Extension connection has expired. Reconnect AuditFlux Extension to continue.'), { status: 401 });
+  const { data: connection, error: connectionError } = await db.from('extension_connections').select('id,user_id,workspace_id,status').eq('id', session.connection_id).maybeSingle();
+  if (connectionError) throw connectionError;
+  if (!connection || connection.status !== 'connected') throw Object.assign(new Error('Extension connection is not active.'), { status: 401 });
+  await Promise.all([db.from('extension_sessions').update({ last_seen_at: now }).eq('id', session.id), db.from('extension_connections').update({ last_seen_at: now }).eq('id', connection.id)]);
+  return { db, user: { id: connection.user_id }, extensionConnection: connection };
+}
+
+async function extensionSessionIdentity(req) {
+  const token = req.headers['x-auditflux-extension-session'];
+  return extensionSessionIdentityFor(adminClient(), token);
+}
+
 async function requireUser(req) {
+  const extensionIdentity = await extensionSessionIdentity(req);
+  if (extensionIdentity) return extensionIdentity;
   const token = bearer(req);
   if (!token) throw Object.assign(new Error('Authentication is required.'), { status: 401 });
   const db = adminClient();
@@ -216,4 +238,4 @@ async function loadAudit(req, auditId) {
 
 function failure(res, error) { json(res, error.status || 500, { error: error.message || 'AuditFlux API request failed.' }); }
 
-module.exports = { adminClient, applyCors, json, parseBody, requireUser, workspaceFor, safeHttpUrl, hostName, persistAudit, loadAudit, ownedAudit, failure, publicRuntimeStatus, supabaseServerConfig };
+module.exports = { adminClient, applyCors, json, parseBody, requireUser, workspaceFor, safeHttpUrl, hostName, persistAudit, loadAudit, ownedAudit, failure, publicRuntimeStatus, supabaseServerConfig, extensionSessionHash, extensionSessionIdentity, extensionSessionIdentityFor };

@@ -2,6 +2,9 @@ importScripts('content/overlay.js', 'engine/analyzer.js', 'engine/rules.js', 'en
 
 const REGISTRY_KEY = 'auditfluxAuditTabRegistry';
 const SESSION_KEY = 'auditfluxConnection';
+const INSTALLATION_KEY = 'auditfluxInstallationId';
+const AUDITFLUX_WEB_APP_ORIGIN = 'https://auditflux.vercel.app';
+const AUDITFLUX_SAAS_ORIGINS = new Set([AUDITFLUX_WEB_APP_ORIGIN]);
 
 async function registry() {
   const stored = await chrome.storage.local.get({ [REGISTRY_KEY]: {} });
@@ -9,6 +12,46 @@ async function registry() {
 }
 
 async function saveRegistry(next) { await chrome.storage.local.set({ [REGISTRY_KEY]: next }); }
+
+async function installationId() {
+  const stored = await chrome.storage.local.get({ [INSTALLATION_KEY]: null });
+  if (stored[INSTALLATION_KEY]) return stored[INSTALLATION_KEY];
+  const next = crypto.randomUUID(); await chrome.storage.local.set({ [INSTALLATION_KEY]: next }); return next;
+}
+
+function sessionHeaders(session) {
+  return session?.sessionToken ? { 'X-AuditFlux-Extension-Session': session.sessionToken } : session?.accessToken ? { Authorization: 'Bearer ' + session.accessToken } : {};
+}
+
+function officialSender(sender) {
+  try { return Boolean(sender?.url && AUDITFLUX_SAAS_ORIGINS.has(new URL(sender.url).origin)); } catch { return false; }
+}
+
+async function pairExtension(message, sender) {
+  if (!officialSender(sender) || typeof message?.nonce !== 'string' || !message.nonce.startsWith('af_conn_')) return { ok: false, reason: 'INVALID_PAIRING_REQUEST' };
+  const version = chrome.runtime.getManifest().version; const installId = await installationId();
+  const response = await fetch(AUDITFLUX_WEB_APP_ORIGIN + '/api/extensions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'confirm', nonce: message.nonce, installationId: installId, extensionVersion: version, protocolVersion: '1', browser: navigator.userAgent, capabilities: ['audit-save', 'full-report', 'locate', 'heading-overlay', 'rescan'] }) });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.sessionToken) return { ok: false, reason: 'PAIRING_REJECTED' };
+  const session = { apiBase: AUDITFLUX_WEB_APP_ORIGIN, sessionToken: body.sessionToken, expiresAt: body.expiresAt, connectedAt: Date.now(), installationId: installId, connection: body.connection };
+  await chrome.storage.session.set({ [SESSION_KEY]: session });
+  return { ok: true, state: 'connected', connection: body.connection };
+}
+
+async function pairingStatus(sender) {
+  if (!officialSender(sender)) return { ok: false, reason: 'INVALID_ORIGIN' };
+  const stored = await chrome.storage.session.get({ [SESSION_KEY]: null }); const session = stored[SESSION_KEY];
+  if (!session?.sessionToken) return { ok: true, state: 'not_connected' };
+  if (!session.expiresAt || new Date(session.expiresAt).getTime() <= Date.now()) return { ok: true, state: 'expired' };
+  return { ok: true, state: 'connected', connection: session.connection || null };
+}
+
+async function disconnectPairing(sender) {
+  if (!officialSender(sender)) return { ok: false, reason: 'INVALID_ORIGIN' };
+  const stored = await chrome.storage.session.get({ [SESSION_KEY]: null }); const session = stored[SESSION_KEY];
+  if (session?.sessionToken && session?.connection?.id) await fetch(AUDITFLUX_WEB_APP_ORIGIN + '/api/extensions', { method: 'POST', headers: { 'Content-Type': 'application/json', ...sessionHeaders(session) }, body: JSON.stringify({ action: 'disconnect', connectionId: session.connection.id }) }).catch(() => null);
+  await chrome.storage.session.remove(SESSION_KEY); return { ok: true, state: 'disconnected' };
+}
 
 function handleConnection(message, sendResponse) {
   if (message?.type !== 'auditflux:connection') return false;
@@ -18,8 +61,12 @@ function handleConnection(message, sendResponse) {
   return true;
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (handleConnection(message, sendResponse)) return true;
+  if (message?.type === 'auditflux:pair') { pairExtension(message, sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
+  if (message?.type === 'auditflux:connection-status') { pairingStatus(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
+  if (message?.type === 'auditflux:disconnect') { disconnectPairing(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
+  if (message?.type === 'auditflux:command') { if (!officialSender(sender)) return sendResponse({ ok: false, reason: 'INVALID_ORIGIN' }); runAuditCommand(message.command, sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'COMMAND_FAILED' })); return true; }
   if (message?.type === 'auditflux:register-audit') {
     registry().then(async records => {
       records[message.auditId] = { tabId: message.tabId, windowId: message.windowId, url: message.url, savedAt: Date.now() };
@@ -30,49 +77,51 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  if (handleConnection(message, sendResponse)) return true;
-  if (!message?.auditId) return;
-  (async () => {
+async function runAuditCommand(message, sender) {
+    if (!message?.auditId) return { ok: false, reason: 'INVALID_REQUEST' };
     const records = await registry();
     const record = records[message.auditId];
-    if (!record) return sendResponse({ ok: false, reason: 'AUDIT_TAB_UNAVAILABLE' });
+    if (!record) return { ok: false, reason: 'AUDIT_TAB_UNAVAILABLE' };
     const tab = await chrome.tabs.get(record.tabId).catch(() => null);
-    if (!tab) return sendResponse({ ok: false, reason: 'TAB_CLOSED' });
-    if (!tab.url || new URL(tab.url).origin !== new URL(record.url).origin) return sendResponse({ ok: false, reason: 'PAGE_CHANGED' });
+    if (!tab) return { ok: false, reason: 'TAB_CLOSED' };
+    if (!tab.url || new URL(tab.url).origin !== new URL(record.url).origin) return { ok: false, reason: 'PAGE_CHANGED' };
     await chrome.tabs.update(record.tabId, { active: true });
     await chrome.windows.update(record.windowId, { focused: true }).catch(() => {});
     if (message.type === 'auditflux:toggle-heading-overlay') {
       const result = await chrome.scripting.executeScript({ target: { tabId: record.tabId }, func: SCC_TOGGLE_HEADING_OVERLAY });
       const overlay = result?.[0]?.result;
-      if (!overlay) return sendResponse({ ok: false, reason: 'OVERLAY_FAILED' });
-      return sendResponse({ ok: true, ...overlay, sender: sender.origin || null });
+      if (!overlay) return { ok: false, reason: 'OVERLAY_FAILED' };
+      return { ok: true, ...overlay, sender: sender.origin || null };
     }
     if (message.type === 'auditflux:rescan') {
       const connection = await chrome.storage.session.get({ [SESSION_KEY]: null });
       const session = connection[SESSION_KEY];
-      if (!session?.apiBase || !session?.accessToken) return sendResponse({ ok: false, reason: 'CONNECTION_REQUIRED' });
+      if (!session?.apiBase || (!session?.accessToken && !session?.sessionToken)) return { ok: false, reason: 'CONNECTION_REQUIRED' };
       const analyzed = await chrome.scripting.executeScript({ target: { tabId: record.tabId }, func: SCC_ANALYZE });
       const data = analyzed?.[0]?.result;
-      if (!data?.page?.url) return sendResponse({ ok: false, reason: 'ANALYSIS_FAILED' });
+      if (!data?.page?.url) return { ok: false, reason: 'ANALYSIS_FAILED' };
       const audit = SCC_AUDIT(data);
       const payload = AUDITFLUX_CONTRACT.normalizeAudit({ data, audit, tab: { id: record.tabId, windowId: record.windowId, url: tab.url } });
       const response = await fetch(new URL('/api/audits', session.apiBase).toString(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.accessToken },
+        headers: { 'Content-Type': 'application/json', ...sessionHeaders(session) },
         body: JSON.stringify(payload),
       });
       const body = await response.json().catch(() => null);
-      if (!response.ok || !body?.auditId) return sendResponse({ ok: false, reason: 'SAVE_FAILED', error: body?.error || 'AuditFlux could not save the new audit.' });
+      if (!response.ok || !body?.auditId) return { ok: false, reason: 'SAVE_FAILED', error: body?.error || 'AuditFlux could not save the new audit.' };
       records[body.auditId] = { tabId: record.tabId, windowId: record.windowId, url: data.page.url, savedAt: Date.now() };
       await saveRegistry(records);
       await chrome.storage.local.set({ sccLatest: { data, audit, tabId: record.tabId, savedAt: Date.now() }, sccLatestSavedAudit: { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: session.apiBase, savedAt: Date.now() } });
-      return sendResponse({ ok: true, auditId: body.auditId, duplicate: Boolean(body.duplicate), sender: sender.origin || null });
+      return { ok: true, auditId: body.auditId, duplicate: Boolean(body.duplicate), sender: sender.origin || null };
     }
-    if (message.type !== 'auditflux:locate' || !message.locator) return sendResponse({ ok: false, reason: 'INVALID_REQUEST' });
+    if (message.type !== 'auditflux:locate' || !message.locator) return { ok: false, reason: 'INVALID_REQUEST' };
     const result = await chrome.scripting.executeScript({ target: { tabId: record.tabId }, func: SCC_LOCATE_AUDIT_TARGET, args: [message.locator] });
     const located = result?.[0]?.result || { located: false, reason: 'PAGE_CHANGED' };
-    return sendResponse({ ok: Boolean(located.located), ...located, sender: sender.origin || null });
-  })().catch(error => sendResponse({ ok: false, reason: 'LOCATE_FAILED', error: error.message }));
+    return { ok: Boolean(located.located), ...located, sender: sender.origin || null };
+}
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (handleConnection(message, sendResponse)) return true;
+  runAuditCommand(message, sender).then(sendResponse).catch(error => sendResponse({ ok: false, reason: 'LOCATE_FAILED', error: error.message }));
   return true;
 });

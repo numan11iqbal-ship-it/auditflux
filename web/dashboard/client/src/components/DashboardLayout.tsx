@@ -1,6 +1,6 @@
 import { BrandMark } from '@/components/BrandMark';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { BookOpenCheck, Braces, ChartNoAxesCombined, CircleGauge, FileWarning, FolderKanban, Image, Link2, ListTree, LogOut, Menu, SearchCheck, Settings, Shield, ShieldCheck, SlidersHorizontal, Wrench } from 'lucide-react';
+import { BookOpenCheck, Braces, ChartNoAxesCombined, CircleGauge, FileWarning, FolderKanban, Image, Link2, ListTree, LogOut, Menu, PlugZap, SearchCheck, Settings, Shield, ShieldCheck, SlidersHorizontal, Wrench } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import { useLocation } from 'wouter';
 import { auditIdFromLocation, auditPath, routeSection } from '@/lib/audit-view';
@@ -8,7 +8,7 @@ import { auditIdFromLocation, auditPath, routeSection } from '@/lib/audit-view';
 const auditNavigation = [
   ['Overview', 'overview', CircleGauge], ['Issues', 'issues', FileWarning], ['Headings', 'headings', ListTree], ['Links', 'links', Link2], ['Images', 'images', Image], ['Schema', 'schema', Braces], ['GEO / AEO', 'geo', SearchCheck], ['Performance', 'performance', ChartNoAxesCombined], ['Accessibility', 'accessibility', ShieldCheck], ['Technical', 'technical', Wrench], ['Security', 'security', Shield], ['Resources', 'resources', SlidersHorizontal],
 ];
-const workspaceNavigation = [['Projects', '/projects', FolderKanban], ['All audits', '/history', ChartNoAxesCombined], ['Reports', '/reports', BookOpenCheck], ['Settings', '/settings', Settings]];
+const workspaceNavigation = [['Projects', '/projects', FolderKanban], ['All Audits', '/history', ChartNoAxesCombined], ['Reports', '/reports', BookOpenCheck], ['Connect Extension', '/connect-extension', PlugZap], ['Settings', '/settings', Settings]];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useSupabaseAuth();

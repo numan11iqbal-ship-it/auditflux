@@ -15,8 +15,12 @@ describe('context-free AuditFlux workspace landing', () => {
     expect(source).toContain('Open Audit History');
   });
 
-  it('confirms a successful extension bridge and surfaces a Chrome bridge error', () => {
+  it('uses automatic official-origin pairing and never requires a customer-provided extension ID', () => {
     expect(source).toContain('Extension Connected');
-    expect(source).toContain('runtime.lastError?.message');
+    expect(source).toContain('connectExtension(token)');
+    expect(source).toContain('Connect AuditFlux Extension');
+    expect(source).toContain("section === 'settings' || section === 'connect-extension'");
+    expect(source).not.toContain('VITE_AUDITFLUX_EXTENSION_ID');
+    expect(source).not.toContain('runtime.sendMessage');
   });
 });

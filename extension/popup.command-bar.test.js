@@ -7,16 +7,16 @@ const path = require('node:path');
 
 const popup = fs.readFileSync(path.join(__dirname, 'popup.js'), 'utf8');
 
-test('full report saves then opens the canonical signed-in SaaS audit instead of a deployment alias or legacy extension dashboard', () => {
+test('full report saves then opens the canonical signed-in Export & Report Center instead of a deployment alias or legacy extension dashboard', () => {
   assert.match(popup, /\$\('#dashboardBtn'\)\.addEventListener\('click', \(\) => saveAuditToAuditFlux\(true\)\)/);
   assert.match(popup, /const AUDITFLUX_WEB_APP_ORIGIN = 'https:\/\/auditflux\.vercel\.app';/);
-  assert.match(popup, /chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/audit\/' \+ encodeURIComponent\(saved\.auditId\) \+ '\/overview'\) \}\)/);
+  assert.match(popup, /chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/audit\/' \+ encodeURIComponent\(saved\.auditId\) \+ '\/reports'\) \}\)/);
 });
 
 test('top-bar Web App action opens the current audited page in the canonical signed-in AuditFlux application', () => {
   assert.match(popup, /const webAppButton = \$\('#webAppBtn'\);/);
   assert.match(popup, /async function openWebAppForCurrentAudit\(\) \{/);
-  assert.match(popup, /if \(DATA && AUDIT && TAB && connection\?\.apiBase && connection\?\.accessToken\) \{\s*return saveAuditToAuditFlux\(true\);/);
+  assert.match(popup, /if \(DATA && AUDIT && TAB && connection\?\.apiBase && \(connection\?\.accessToken \|\| connection\?\.sessionToken\)\) \{\s*return saveAuditToAuditFlux\(true\);/);
   assert.match(popup, /chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/'\) \}\)/);
   assert.match(popup, /webAppButton\.addEventListener\('click', \(\) => void openWebAppForCurrentAudit\(\)\)/);
 });

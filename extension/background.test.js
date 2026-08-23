@@ -38,6 +38,22 @@ test('accepts a dashboard-originated external connection message and stores the 
   assert.equal(typeof storedConnection.connectedAt, 'number');
 });
 
+test('automatically pairs only from the official AuditFlux workspace and stores a short-lived extension session', async () => {
+  const listeners = {}; let storedSession = null; let local = {};
+  const chrome = {
+    storage: { local: { get: async () => local, set: async value => { local = { ...local, ...value }; } }, session: { get: async () => ({}), set: async value => { storedSession = value.auditfluxConnection; }, remove: async () => {} } },
+    runtime: { getManifest: () => ({ version: '5.4.1' }), onMessage: { addListener: listener => { listeners.internal = listener; } }, onMessageExternal: { addListener: listener => { listeners.external = listener; } } }, tabs: {}, scripting: {}, windows: {},
+  };
+  const source = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');
+  vm.runInNewContext(source, { chrome, importScripts: () => {}, Date, URL, crypto: { randomUUID: () => 'installation-1234567890' }, navigator: { userAgent: 'Chrome Test' }, fetch: async () => ({ ok: true, json: async () => ({ sessionToken: 'short-lived-session', expiresAt: '2030-01-01T00:00:00.000Z', connection: { id: 'connection-1', status: 'connected' } }) }) });
+  let response; listeners.internal({ type: 'auditflux:pair', nonce: 'af_conn_nonce' }, { url: 'https://auditflux.vercel.app/connect-extension' }, value => { response = value; });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(response.ok, true); assert.equal(storedSession.sessionToken, 'short-lived-session'); assert.equal(storedSession.connection.id, 'connection-1'); assert.equal(storedSession.accessToken, undefined);
+  let rejected; listeners.internal({ type: 'auditflux:pair', nonce: 'af_conn_nonce' }, { url: 'https://attacker.example/connect' }, value => { rejected = value; });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(rejected.ok, false); assert.equal(rejected.reason, 'INVALID_PAIRING_REQUEST');
+});
+
 test('toggles the existing heading overlay on the exact registered audited tab for the unified SaaS workspace', async () => {
   const listeners = {};
   const registry = { 'audit-123': { tabId: 7, windowId: 2, url: 'https://example.com/article', savedAt: Date.now() } };
