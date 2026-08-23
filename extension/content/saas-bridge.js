@@ -15,3 +15,8 @@ window.addEventListener('message', event => {
   const type = message.type === 'auditflux:pair-request' ? 'auditflux:pair' : message.type === 'auditflux:connection-status' ? 'auditflux:connection-status' : message.type === 'auditflux:disconnect-request' ? 'auditflux:disconnect' : 'auditflux:command';
   chrome.runtime.sendMessage({ type, nonce: message.nonce, command: message.command, apiBase: event.origin }).then(response => bridgeReply(message.requestId, response)).catch(() => bridgeReply(message.requestId, { ok: false, reason: 'CONNECTION_FAILED' }));
 });
+
+chrome.runtime.onMessage.addListener(message => {
+  if (message?.type !== 'auditflux:workspace-event' || typeof message.eventType !== 'string') return;
+  window.postMessage({ type: 'auditflux:workspace-event', eventType: message.eventType, payload: message.payload || {} }, window.location.origin);
+});

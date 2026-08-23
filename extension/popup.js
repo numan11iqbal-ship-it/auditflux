@@ -97,6 +97,7 @@ async function saveAuditToAuditFlux(openWhenSaved, reportTabId) {
       if (!response.ok || !body?.auditId) return toast(body?.error || 'AuditFlux could not save this audit');
       saved = { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: backend, savedAt: Date.now() };
       await chrome.storage.local.set({ sccLatestSavedAudit: saved });
+      chrome.runtime.sendMessage({ type: 'auditflux:audit-saved', auditId: body.auditId, url: DATA.page.url }).catch(() => null);
       await chrome.runtime.sendMessage({ type: 'auditflux:register-audit', auditId: body.auditId, tabId: TAB.id, windowId: TAB.windowId, url: DATA.page.url });
       toast(body.duplicate ? 'This audit was already saved' : 'Audit saved to AuditFlux');
     } catch { return toast('AuditFlux backend unavailable'); }

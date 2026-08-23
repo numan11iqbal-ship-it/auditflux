@@ -27,6 +27,11 @@ function officialSender(sender) {
   try { return Boolean(sender?.url && AUDITFLUX_SAAS_ORIGINS.has(new URL(sender.url).origin)); } catch { return false; }
 }
 
+async function emitWorkspaceEvent(eventType, payload = {}) {
+  const tabs = await chrome.tabs.query({ url: [`${AUDITFLUX_WEB_APP_ORIGIN}/*`] }).catch(() => []);
+  await Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, { type: 'auditflux:workspace-event', eventType, payload }).catch(() => null)));
+}
+
 async function pairExtension(message, sender) {
   if (!officialSender(sender) || typeof message?.nonce !== 'string' || !message.nonce.startsWith('af_conn_')) return { ok: false, reason: 'INVALID_PAIRING_REQUEST' };
   const version = chrome.runtime.getManifest().version; const installId = await installationId();
@@ -35,6 +40,7 @@ async function pairExtension(message, sender) {
   if (!response.ok || !body?.sessionToken) return { ok: false, reason: 'PAIRING_REJECTED' };
   const session = { apiBase: AUDITFLUX_WEB_APP_ORIGIN, sessionToken: body.sessionToken, expiresAt: body.expiresAt, connectedAt: Date.now(), installationId: installId, connection: body.connection };
   await chrome.storage.session.set({ [SESSION_KEY]: session });
+  await emitWorkspaceEvent('AUDITFLUX_EXTENSION_CONNECTED', { installationId: installId, extensionVersion: version, connectedAt: session.connectedAt, connectionId: body.connection?.id || null });
   return { ok: true, state: 'connected', connection: body.connection };
 }
 
@@ -65,7 +71,7 @@ async function disconnectPairing(sender) {
   if (!officialSender(sender)) return { ok: false, reason: 'INVALID_ORIGIN' };
   const stored = await chrome.storage.session.get({ [SESSION_KEY]: null }); const session = stored[SESSION_KEY];
   if (session?.sessionToken && session?.connection?.id) await fetch(AUDITFLUX_WEB_APP_ORIGIN + '/api/extensions', { method: 'POST', headers: { 'Content-Type': 'application/json', ...sessionHeaders(session) }, body: JSON.stringify({ action: 'disconnect', connectionId: session.connection.id }) }).catch(() => null);
-  await chrome.storage.session.remove(SESSION_KEY); return { ok: true, state: 'disconnected' };
+  await chrome.storage.session.remove(SESSION_KEY); await emitWorkspaceEvent('AUDITFLUX_EXTENSION_DISCONNECTED', { connectionId: session?.connection?.id || null }); return { ok: true, state: 'disconnected' };
 }
 
 function handleConnection(message, sendResponse) {
@@ -81,6 +87,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'auditflux:pair') { pairExtension(message, sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:connection-status') { pairingStatus(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:get-popup-connection') { popupConnection(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
+  if (message?.type === 'auditflux:audit-saved') { if (!popupSender(sender) || typeof message.auditId !== 'string') return sendResponse({ ok: false, reason: 'INVALID_CALLER' }); emitWorkspaceEvent('AUDITFLUX_AUDIT_SAVED', { auditId: message.auditId, url: message.url || null, createdAt: Date.now() }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false, reason: 'EVENT_FAILED' })); return true; }
   if (message?.type === 'auditflux:disconnect') { disconnectPairing(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:command') { if (!officialSender(sender)) return sendResponse({ ok: false, reason: 'INVALID_ORIGIN' }); runAuditCommand(message.command, sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'COMMAND_FAILED' })); return true; }
   if (message?.type === 'auditflux:register-audit') {
@@ -128,6 +135,7 @@ async function runAuditCommand(message, sender) {
       records[body.auditId] = { tabId: record.tabId, windowId: record.windowId, url: data.page.url, savedAt: Date.now() };
       await saveRegistry(records);
       await chrome.storage.local.set({ sccLatest: { data, audit, tabId: record.tabId, savedAt: Date.now() }, sccLatestSavedAudit: { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: session.apiBase, savedAt: Date.now() } });
+      await emitWorkspaceEvent('AUDITFLUX_AUDIT_SAVED', { auditId: body.auditId, url: data.page.url, createdAt: Date.now(), rescan: true });
       return { ok: true, auditId: body.auditId, duplicate: Boolean(body.duplicate), sender: sender.origin || null };
     }
     if (message.type !== 'auditflux:locate' || !message.locator) return { ok: false, reason: 'INVALID_REQUEST' };

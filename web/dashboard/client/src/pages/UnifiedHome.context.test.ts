@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 
 const source = readFileSync(resolve(__dirname, 'UnifiedHome.tsx'), 'utf8');
 const appSource = readFileSync(resolve(__dirname, '..', 'App.tsx'), 'utf8');
+const bridgeSource = readFileSync(resolve(__dirname, '..', 'lib', 'extension-bridge.ts'), 'utf8');
 
 describe('unified AuditFlux workspace startup', () => {
   it('loads a saved audit only when the route explicitly carries an audit ID', () => {
@@ -26,6 +27,14 @@ describe('unified AuditFlux workspace startup', () => {
     expect(source).toContain("section === 'settings' || section === 'connect-extension'");
     expect(source).not.toContain('VITE_AUDITFLUX_EXTENSION_ID');
     expect(source).not.toContain('runtime.sendMessage');
+  });
+
+  it('revalidates real workspace data after narrow extension and audit events without a browser reload', () => {
+    expect(source).toContain('subscribeWorkspaceEvents');
+    expect(bridgeSource).toContain('AUDITFLUX_EXTENSION_CONNECTED');
+    expect(bridgeSource).toContain('AUDITFLUX_AUDIT_SAVED');
+    expect(source).toContain("document.addEventListener('visibilitychange'");
+    expect(source).not.toContain('window.location.reload');
   });
 
   it('registers the in-workspace connection URL instead of routing it to a separate dashboard or 404 state', () => {

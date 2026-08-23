@@ -5,16 +5,16 @@ const path = require('path');
 const vm = require('vm');
 
 function bridgeHarness() {
-  const listeners = []; const runtimeMessages = []; const replies = [];
+  const listeners = []; const runtimeMessages = []; const replies = []; let runtimeListener;
   const window = {
     location: { origin: 'https://auditflux.vercel.app' },
     addEventListener: (type, listener) => { if (type === 'message') listeners.push(listener); },
     postMessage: message => replies.push(message),
   };
-  const chrome = { runtime: { sendMessage: message => { runtimeMessages.push(message); return Promise.resolve({ ok: true, state: 'connected' }); } } };
+  const chrome = { runtime: { sendMessage: message => { runtimeMessages.push(message); return Promise.resolve({ ok: true, state: 'connected' }); }, onMessage: { addListener: listener => { runtimeListener = listener; } } } };
   const source = fs.readFileSync(path.join(__dirname, 'saas-bridge.js'), 'utf8');
   vm.runInNewContext(source, { window, chrome, Set, Promise });
-  return { listeners, runtimeMessages, replies, window };
+  return { listeners, runtimeMessages, replies, window, runtimeListener };
 }
 
 test('relays a pairing nonce only from the canonical AuditFlux SaaS origin', async () => {

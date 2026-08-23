@@ -42,7 +42,7 @@ test('automatically pairs only from the official AuditFlux workspace and stores 
   const listeners = {}; let storedSession = null; let local = {};
   const chrome = {
     storage: { local: { get: async () => local, set: async value => { local = { ...local, ...value }; } }, session: { get: async () => ({}), set: async value => { storedSession = value.auditfluxConnection; }, remove: async () => {} } },
-    runtime: { getManifest: () => ({ version: '5.4.1' }), onMessage: { addListener: listener => { listeners.internal = listener; } }, onMessageExternal: { addListener: listener => { listeners.external = listener; } } }, tabs: {}, scripting: {}, windows: {},
+    runtime: { getManifest: () => ({ version: '5.4.1' }), onMessage: { addListener: listener => { listeners.internal = listener; } }, onMessageExternal: { addListener: listener => { listeners.external = listener; } } }, tabs: { query: async () => [], sendMessage: async () => {} }, scripting: {}, windows: {},
   };
   const source = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');
   vm.runInNewContext(source, { chrome, importScripts: () => {}, Date, URL, crypto: { randomUUID: () => 'installation-1234567890' }, navigator: { userAgent: 'Chrome Test' }, fetch: async () => ({ ok: true, json: async () => ({ sessionToken: 'short-lived-session', expiresAt: '2030-01-01T00:00:00.000Z', connection: { id: 'connection-1', status: 'connected' } }) }) });
@@ -97,7 +97,7 @@ test('re-scans the registered tab and persists a new normalized audit rather tha
   const chrome = {
     storage: { local: { get: async () => ({ auditfluxAuditTabRegistry: registry }), set: async value => { stored = value; } }, session: { get: async () => ({ auditfluxConnection: { apiBase: 'https://auditflux.vercel.app', accessToken: 'token' } }), set: async () => {} } },
     runtime: { onMessage: { addListener: listener => { listeners.internal = listener; } }, onMessageExternal: { addListener: listener => { listeners.external = listener; } } },
-    tabs: { get: async () => ({ id: 7, url: 'https://example.com/article' }), update: async () => {} }, windows: { update: async () => {} },
+    tabs: { get: async () => ({ id: 7, url: 'https://example.com/article' }), update: async () => {}, query: async () => [], sendMessage: async () => {} }, windows: { update: async () => {} },
     scripting: { executeScript: async options => options.func.name === 'SCC_ANALYZE' ? [{ result: { page: { url: 'https://example.com/article' } } }] : [{ result: null }] },
   };
   const source = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');

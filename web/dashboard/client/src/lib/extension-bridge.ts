@@ -24,6 +24,18 @@ export async function disconnectExtension(token: string, connectionId?: string) 
 export async function connectedBrowsers(token: string) { const data = await pairingApi(token, undefined, 'GET'); return Array.isArray(data.connections) ? data.connections as Record<string, unknown>[] : []; }
 export async function extensionCommand(command: Record<string, unknown>) { return bridgeRequest('auditflux:extension-command', { command }); }
 
+export type WorkspaceBridgeEvent = { eventType: 'AUDITFLUX_EXTENSION_CONNECTED' | 'AUDITFLUX_AUDIT_SAVED' | 'AUDITFLUX_AUDIT_UPDATED' | 'AUDITFLUX_EXTENSION_DISCONNECTED'; payload: Record<string, unknown> };
+
+export function subscribeWorkspaceEvents(listener: (event: WorkspaceBridgeEvent) => void) {
+  const receive = (event: MessageEvent) => {
+    if (event.source !== window || event.origin !== window.location.origin || event.data?.type !== 'auditflux:workspace-event') return;
+    if (!['AUDITFLUX_EXTENSION_CONNECTED', 'AUDITFLUX_AUDIT_SAVED', 'AUDITFLUX_AUDIT_UPDATED', 'AUDITFLUX_EXTENSION_DISCONNECTED'].includes(event.data.eventType)) return;
+    listener({ eventType: event.data.eventType, payload: event.data.payload && typeof event.data.payload === 'object' ? event.data.payload : {} });
+  };
+  window.addEventListener('message', receive);
+  return () => window.removeEventListener('message', receive);
+}
+
 export function connectionStateFromResponse(result: unknown): ExtensionConnectionState { const response = result as BridgeResponse | null; return response?.ok ? response.state === 'not_connected' || response.state === 'expired' ? response.state : 'connected' : 'failed'; }
 export function locateSucceeded(result: unknown) { const response = result as BridgeResponse | null; return Boolean(response?.ok && response.located); }
 export function overlayToggled(result: unknown) { const response = result as BridgeResponse | null; return Boolean(response?.ok && typeof response.enabled === 'boolean'); }
