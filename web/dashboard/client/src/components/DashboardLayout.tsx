@@ -23,6 +23,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <nav className="af-sidebar-nav"><p>Workspace</p>{auditNavigation.slice(0, 4).map(([label, path, Icon]) => item(label as string, path as string, Icon as typeof CircleGauge))}<p className="af-nav-split">Audit detail</p>{auditNavigation.slice(4).map(([label, path, Icon]) => item(label as string, path as string, Icon as typeof CircleGauge))}</nav>
       <div className="af-sidebar-bottom">{workspaceNavigation.map(([label, path, Icon]) => item(label as string, path as string, Icon as typeof CircleGauge))}<div className="af-account"><span>{displayName.slice(0, 1).toUpperCase()}</span><div><strong>{displayName}</strong><em>{email}</em></div></div><button className="af-signout" onClick={() => void signOut()}><LogOut size={16} />Sign out</button></div>
     </aside>
-    <main className="af-shell-main"><header className="af-topbar"><div className="af-topbar-brand"><BrandMark className="af-topbar-logo" /></div><div className="af-topbar-status"><span className="af-live-dot" />Authenticated workspace</div></header><div className="af-main-content">{children}</div></main>
+    <main className="af-shell-main"><header className="af-topbar"><div className="af-topbar-status"><span className="af-live-dot" />Authenticated workspace</div></header><div className="af-main-content">{children}</div></main>
   </div>;
 }
