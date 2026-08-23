@@ -5,15 +5,18 @@ import { resolve } from 'node:path';
 const source = readFileSync(resolve(__dirname, 'UnifiedHome.tsx'), 'utf8');
 const appSource = readFileSync(resolve(__dirname, '..', 'App.tsx'), 'utf8');
 
-describe('context-free AuditFlux workspace landing', () => {
+describe('unified AuditFlux workspace startup', () => {
   it('loads a saved audit only when the route explicitly carries an audit ID', () => {
     expect(source).toContain('const target = routeAuditId;');
     expect(source).not.toContain('routeAuditId || historyResult.audits[0]?.id');
   });
 
-  it('honestly asks the user to choose an audit rather than displaying a prior report', () => {
-    expect(source).toContain('Choose An Audit To Review.');
-    expect(source).toContain('Open Audit History');
+  it('routes a paired browser to the latest real saved audit and reserves the empty state for a workspace with no audits', () => {
+    expect(source).toContain('workspaceStartupState');
+    expect(source).toContain("extensionConnection === 'connected' && history[0]?.id");
+    expect(source).toContain("setLocation(auditPath(String(history[0].id), 'overview'))");
+    expect(source).toContain('No Audits Yet.');
+    expect(source).not.toContain('Choose An Audit To Review.');
   });
 
   it('uses automatic official-origin pairing and never requires a customer-provided extension ID', () => {
