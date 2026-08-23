@@ -62,4 +62,6 @@ The user-supplied workspace source was treated solely as a visual reference. Its
 | Tests | Focused tests cover the pure persisted-data overview mapping and priority ordering. The full dashboard suite, TypeScript check, production build, shared contract/API/extension/routing tests, and prohibited Manus URL scan all passed before release. |
 | Live verification | Production deployment `dpl_JUvh2kM9A5vH3wgQK47F9V3iQBCF` for commit `98f7eee` reached `READY`. An authenticated production session displayed real Behance and ThemeForest audit history, real scores and issues, and the **Extension connected** state after the visual refresh. |
 
+The final user-attached logo treatment was released in deployment `dpl_7qmQEcbTa3jLhFEoSuSruTQ2syfh` for commit `ff53424`, which reached `READY`. Live authenticated validation confirmed the full AuditFlux wordmark, icon, and tagline are legible on contained light surfaces in both the sidebar and top bar, while the real persisted-audit overview remains intact.
+
 The user-attached raster logo is deployed in the existing Vercel build. The larger optional decorative textures remain deliberately un-deployed because they are not needed for the responsive workspace and would add unnecessary production payload.
