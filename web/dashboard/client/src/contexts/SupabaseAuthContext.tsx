@@ -31,8 +31,14 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     };
     client.auth.getSession().then(({ data }) => void applyStableSession(data.session));
     const { data: subscription } = client.auth.onAuthStateChange((_event, next) => {
+      // The initial clock-safe refresh can emit TOKEN_REFRESHED. It is handled by
+      // applyStableSession above. Later auth events already carry a valid session;
+      // applying the bootstrap delay again repeatedly reset the whole workspace to
+      // its full-screen loader while the extension's Web App destination was open.
       if (stabilizing.current) return;
-      void applyStableSession(next);
+      if (!active) return;
+      setSession(next);
+      setLoading(false);
     });
     return () => { active = false; subscription.subscription.unsubscribe(); };
   }, []);
