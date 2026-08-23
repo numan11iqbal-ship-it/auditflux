@@ -91,6 +91,19 @@ export function exportCsvSets(report: NormalizedAuditReport) {
   return Object.fromEntries(Object.entries(reportDatasets(report)).map(([name, dataset]) => [name, csv(dataset.headers, dataset.rows)]));
 }
 
+const EXCEL_CELL_LIMIT = 32_000;
+export function excelExportData(report: NormalizedAuditReport) {
+  const longText: string[][] = [];
+  const sheets = Object.entries(reportDatasets(report)).map(([name, dataset]) => ({ name, headers: dataset.headers, rows: dataset.rows.map((row, rowIndex) => row.map((value, columnIndex) => {
+    const rendered = stringify(value);
+    if (rendered.length <= EXCEL_CELL_LIMIT) return rendered;
+    const reference = `${name}:${rowIndex + 2}:${dataset.headers[columnIndex] || `column-${columnIndex + 1}`}`;
+    for (let start = 0, chunk = 1; start < rendered.length; start += EXCEL_CELL_LIMIT, chunk += 1) longText.push([reference, String(chunk), rendered.slice(start, start + EXCEL_CELL_LIMIT)]);
+    return `[Stored losslessly in Long Text: ${reference}]`;
+  })) }));
+  return { sheets, longText };
+}
+
 function htmlEscape(value: unknown) { return stringify(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'); }
 function table(headers: string[], rows: unknown[][]) { return `<div class="table-wrap"><table><thead><tr>${headers.map(header => `<th>${htmlEscape(header)}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map(row => `<tr>${row.map((value, index) => { const content = htmlEscape(value); return index === 0 && /^https?:\/\//.test(String(value || '')) ? `<td><a href="${content}">${content}</a></td>` : `<td>${content}</td>`; }).join('')}</tr>`).join('') : `<tr><td colspan="${headers.length}">Not Evaluated</td></tr>`}</tbody></table></div>`; }
 function section(id: string, heading: string, body: string) { return `<section id="${id}"><h2>${htmlEscape(heading)}</h2>${body}</section>`; }
@@ -114,8 +127,9 @@ export async function exportReport(format: ExportFormat, report: NormalizedAudit
   if (format === 'html') return triggerDownload(standaloneHtml(report), `${base}.html`, 'text/html;charset=utf-8');
   if (format === 'csv') { const { default: JSZip } = await import('jszip'); const zip = new JSZip(); Object.entries(exportCsvSets(report)).forEach(([name, data]) => zip.file(name, data)); return triggerDownload(await zip.generateAsync({ type: 'blob' }), `${base}_CSV.zip`, 'application/zip'); }
   if (format === 'xlsx') {
-    const XLSX = await import('xlsx'); const book = XLSX.utils.book_new(); const sets = reportDatasets(report);
-    Object.entries(sets).forEach(([name, dataset]) => { const rows = [dataset.headers, ...dataset.rows.map(row => row.map(stringify))]; const sheet = XLSX.utils.aoa_to_sheet(rows); sheet['!freeze'] = { xSplit: 0, ySplit: 1 }; sheet['!cols'] = dataset.headers.map(() => ({ wch: 24 })); XLSX.utils.book_append_sheet(book, sheet, name.replace(/^\d+-/, '').replace('.csv', '').slice(0, 31)); });
+    const XLSX = await import('xlsx'); const book = XLSX.utils.book_new(); const exportData = excelExportData(report);
+    exportData.sheets.forEach(dataset => { const rows = [dataset.headers, ...dataset.rows]; const sheet = XLSX.utils.aoa_to_sheet(rows); sheet['!freeze'] = { xSplit: 0, ySplit: 1 }; sheet['!cols'] = dataset.headers.map(() => ({ wch: 24 })); XLSX.utils.book_append_sheet(book, sheet, dataset.name.replace(/^\d+-/, '').replace('.csv', '').slice(0, 31)); });
+    if (exportData.longText.length) { const sourceSheet = XLSX.utils.aoa_to_sheet([['Reference', 'Chunk', 'Exact Text'], ...exportData.longText]); sourceSheet['!freeze'] = { xSplit: 0, ySplit: 1 }; sourceSheet['!cols'] = [{ wch: 36 }, { wch: 10 }, { wch: 100 }]; XLSX.utils.book_append_sheet(book, sourceSheet, 'Long Text'); }
     return XLSX.writeFile(book, `${base}.xlsx`);
   }
   if (format === 'docx') {
