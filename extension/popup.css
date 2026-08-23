@@ -1,5 +1,5 @@
 /* Popup-specific layout. The popup is intentionally compact: deep analysis lives in SaaS. */
-:root{--popup-width:420px;--popup-max:600px}
+:root{--popup-width:620px;--popup-max:620px}
 /* Chrome measures an action popup from its intrinsic document width. Avoid a
    viewport-measured maximum here: Chrome starts that measurement at a tiny
    placeholder width, which collapses the visible action popup into a sliver. */
@@ -84,14 +84,13 @@ main{flex:1;display:flex;flex-direction:column;min-height:0;width:100%;max-width
 
 /* Real popup widths: retain hierarchy without root horizontal scrolling. */
 @media (min-width:460px){
-  :root{--popup-width:500px}
   .quick-action[data-view="images"]{display:inline-flex}
   .action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (min-width:560px){
-  :root{--popup-width:580px}
   .quick-action[data-view="schema"]{display:inline-flex}
   .catgrid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
+  .stats-4{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
 @media (max-width:380px){
   .appbar{padding:8px;gap:5px}.brand-mark{width:28px;height:28px}.brand-text strong{font-size:12px}.brand-text span{display:none}
