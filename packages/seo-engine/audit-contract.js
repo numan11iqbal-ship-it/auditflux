@@ -24,6 +24,22 @@
     return SOURCE_TYPES.has(value) ? value : fallback;
   }
 
+  function normalizeAuditUrl(value) {
+    if (typeof value !== 'string') return null;
+    let candidate = value.trim();
+    if (!candidate) return null;
+    candidate = candidate.replace(/^https?:\/+(https?:\/+)/i, '$1');
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) candidate = `https://${candidate}`;
+    try {
+      const url = new URL(candidate);
+      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) return null;
+      url.protocol = url.protocol.toLowerCase();
+      url.hostname = url.hostname.toLowerCase();
+      url.hash = '';
+      return url.href;
+    } catch { return null; }
+  }
+
   function issueLocator(issue, data) {
     if (issue.locator) return cloneWithoutSecrets(issue.locator);
     const category = String(issue.category || '').toLowerCase();
@@ -75,6 +91,9 @@
 
   function normalizeAudit({ data, audit, tab, performance, engineVersion }) {
     if (!data?.page?.url || !audit) throw new Error('A completed extension audit with a page URL is required.');
+    const auditUrl = normalizeAuditUrl(data.page.url);
+    if (!auditUrl) throw new Error('The current audited page URL is invalid.');
+    const tabUrl = normalizeAuditUrl(tab?.url) || auditUrl;
     const capturedAt = data.scannedAt || new Date().toISOString();
     const counts = audit.counts || {};
     const normalizedIssues = (audit.issues || []).map((issue, index) => ({
@@ -129,11 +148,11 @@
     return {
       contractVersion: CONTRACT_VERSION,
       clientAuditId: newClientId(),
-      url: data.page.url,
+      url: auditUrl,
       canonicalUrl: data.head?.canonical || null,
       capturedAt,
       engineVersion: engineVersion || 'extension-5.2.0',
-      tab: tab ? { tabId: tab.id ?? null, windowId: tab.windowId ?? null, url: tab.url || data.page.url } : null,
+      tab: tab ? { tabId: tab.id ?? null, windowId: tab.windowId ?? null, url: tabUrl } : null,
       overallScore: audit.overall ?? null,
       coverage: {
         total: counts.totalRules || 0,
@@ -161,5 +180,5 @@
     };
   }
 
-  return { CONTRACT_VERSION, cloneWithoutSecrets, normalizeAudit, geoAeoRows };
+  return { CONTRACT_VERSION, cloneWithoutSecrets, normalizeAuditUrl, normalizeAudit, geoAeoRows };
 });

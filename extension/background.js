@@ -13,6 +13,52 @@ async function registry() {
 
 async function saveRegistry(next) { await chrome.storage.local.set({ [REGISTRY_KEY]: next }); }
 
+function normalizedHttpUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    url.hash = '';
+    return url.href;
+  } catch { return null; }
+}
+
+function sameAuditedPage(left, right) {
+  const a = normalizedHttpUrl(left); const b = normalizedHttpUrl(right);
+  return Boolean(a && b && a === b);
+}
+
+async function waitForAuditedTab(tab) {
+  if (!tab?.id || tab.status === 'complete' || !chrome.tabs.onUpdated?.addListener) return tab;
+  return new Promise(resolve => {
+    const finish = async () => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve(await chrome.tabs.get(tab.id).catch(() => tab));
+    };
+    const listener = (tabId, changeInfo) => { if (tabId === tab.id && changeInfo.status === 'complete') void finish(); };
+    chrome.tabs.onUpdated.addListener(listener);
+    setTimeout(() => void finish(), 10000);
+  });
+}
+
+async function resolveAuditedTab(message, records) {
+  const record = records[message.auditId];
+  const expectedUrl = normalizedHttpUrl(message.auditUrl || record?.url);
+  if (record?.tabId) {
+    const registered = await chrome.tabs.get(record.tabId).catch(() => null);
+    if (registered && (!expectedUrl || sameAuditedPage(registered.url, expectedUrl))) return { tab: registered, record };
+  }
+  if (!expectedUrl) return { tab: null, record: null };
+  const candidates = await chrome.tabs.query({ url: [`${new URL(expectedUrl).origin}/*`] }).catch(() => []);
+  let tab = candidates.find(candidate => sameAuditedPage(candidate.url, expectedUrl)) || null;
+  if (!tab) tab = await chrome.tabs.create({ url: expectedUrl, active: true });
+  tab = await waitForAuditedTab(tab);
+  if (!tab?.id) return { tab: null, record: null };
+  const recovered = { tabId: tab.id, windowId: tab.windowId, url: expectedUrl, savedAt: Date.now() };
+  records[message.auditId] = recovered;
+  await saveRegistry(records);
+  return { tab, record: recovered };
+}
+
 async function installationId() {
   const stored = await chrome.storage.local.get({ [INSTALLATION_KEY]: null });
   if (stored[INSTALLATION_KEY]) return stored[INSTALLATION_KEY];
@@ -103,11 +149,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function runAuditCommand(message, sender) {
     if (!message?.auditId) return { ok: false, reason: 'INVALID_REQUEST' };
     const records = await registry();
-    const record = records[message.auditId];
-    if (!record) return { ok: false, reason: 'AUDIT_TAB_UNAVAILABLE' };
-    const tab = await chrome.tabs.get(record.tabId).catch(() => null);
-    if (!tab) return { ok: false, reason: 'TAB_CLOSED' };
-    if (!tab.url || new URL(tab.url).origin !== new URL(record.url).origin) return { ok: false, reason: 'PAGE_CHANGED' };
+    const recovered = await resolveAuditedTab(message, records);
+    const tab = recovered.tab; const record = recovered.record;
+    if (!tab || !record) return { ok: false, reason: 'AUDIT_TAB_UNAVAILABLE' };
     await chrome.tabs.update(record.tabId, { active: true });
     await chrome.windows.update(record.windowId, { focused: true }).catch(() => {});
     if (message.type === 'auditflux:toggle-heading-overlay') {

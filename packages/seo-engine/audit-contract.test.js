@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeAudit } = require('./audit-contract');
+const { normalizeAudit, normalizeAuditUrl } = require('./audit-contract');
+
+test('preserves the exact current audited host and path while repairing only accidental duplicated protocols', () => {
+  assert.equal(normalizeAuditUrl(' https://social-media-downloader-sav-down.vercel.app/ '), 'https://social-media-downloader-sav-down.vercel.app/');
+  assert.equal(normalizeAuditUrl('https://https://social-media-downloader-sav-down.vercel.app/path?source=a#section'), 'https://social-media-downloader-sav-down.vercel.app/path?source=a');
+  assert.equal(normalizeAuditUrl('social-media-downloader-sav-down.vercel.app/'), 'https://social-media-downloader-sav-down.vercel.app/');
+});
 
 test('normalizes extension audit data and removes API credentials', () => {
   const payload = normalizeAudit({

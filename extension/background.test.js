@@ -108,3 +108,20 @@ test('re-scans the registered tab and persists a new normalized audit rather tha
   assert.equal(response.auditId, 'audit-new');
   assert.equal(stored.sccLatestSavedAudit.auditId, 'audit-new');
 });
+
+test('opens the exact saved audit URL when a locator has no active registered tab, then executes the real locator', async () => {
+  const listeners = {}; let created = null; let executed = null; const local = { auditfluxAuditTabRegistry: {} };
+  const chrome = {
+    storage: { local: { get: async () => local, set: async value => Object.assign(local, value) }, session: { get: async () => ({}), set: async () => {} } },
+    runtime: { onMessage: { addListener: listener => { listeners.internal = listener; } }, onMessageExternal: { addListener: listener => { listeners.external = listener; } } },
+    tabs: { get: async id => ({ id, windowId: 2, url: 'https://social-media-downloader-sav-down.vercel.app/', status: 'complete' }), query: async () => [], create: async options => { created = options; return { id: 71, windowId: 2, url: options.url, status: 'complete' }; }, update: async () => {}, sendMessage: async () => {} },
+    windows: { update: async () => {} }, scripting: { executeScript: async options => { executed = options; return [{ result: { located: true } }]; } },
+  };
+  const source = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');
+  vm.runInNewContext(source, { chrome, importScripts: () => {}, Date, URL, setTimeout, SCC_LOCATE_AUDIT_TARGET: () => ({ located: true }) });
+  let response; listeners.external({ type: 'auditflux:locate', auditId: 'audit-fallback', auditUrl: 'https://social-media-downloader-sav-down.vercel.app/', locator: { selector: 'main' } }, { origin: 'https://auditflux.vercel.app' }, value => { response = value; });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(created.url, 'https://social-media-downloader-sav-down.vercel.app/');
+  assert.equal(executed.target.tabId, 71);
+  assert.equal(response.ok, true);
+});

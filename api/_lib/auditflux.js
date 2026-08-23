@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
+const { normalizeAuditUrl } = require('../../packages/seo-engine/audit-contract');
 const { cloneWithoutSecrets } = require('../../packages/seo-engine/audit-contract');
 
 const MAX_PAYLOAD_BYTES = 8 * 1024 * 1024;
@@ -105,7 +106,9 @@ async function workspaceFor(db, userId) {
 
 function safeHttpUrl(value) {
   try {
-    const url = new URL(value);
+    const normalized = normalizeAuditUrl(value);
+    if (!normalized) return null;
+    const url = new URL(normalized);
     if (!['http:', 'https:'].includes(url.protocol)) return null;
     const host = url.hostname.toLowerCase();
     if (host === 'localhost' || host.endsWith('.local') || host === '0.0.0.0' || host === '::1' || /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^169\.254\./.test(host)) return null;
@@ -205,7 +208,11 @@ async function persistAudit(req) {
   const { db, user } = await requireUser(req);
   const body = cloneWithoutSecrets(parseBody(req));
   if (JSON.stringify(body).length > MAX_PAYLOAD_BYTES) throw Object.assign(new Error('Audit payload exceeds the maximum allowed size.'), { status: 413 });
-  if (!body.clientAuditId || !safeHttpUrl(body.url)) throw Object.assign(new Error('A normalized audit with a public URL is required.'), { status: 400 });
+  const normalizedUrl = normalizeAuditUrl(body.url);
+  if (!body.clientAuditId || !normalizedUrl || !safeHttpUrl(normalizedUrl)) throw Object.assign(new Error('A normalized audit with a public URL is required.'), { status: 400 });
+  body.url = normalizedUrl;
+  if (body.detail?.page && typeof body.detail.page === 'object') body.detail.page.url = normalizedUrl;
+  if (body.tab && typeof body.tab === 'object') body.tab.url = normalizeAuditUrl(body.tab.url) || normalizedUrl;
   const workspaceId = await workspaceFor(db, user.id);
   const project = await projectForAudit(db, user.id, workspaceId, body);
   const { data: existing, error: existingError } = await db.from('audits').select('id').eq('client_audit_id', body.clientAuditId).maybeSingle();
