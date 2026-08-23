@@ -16,5 +16,6 @@ describe('saved audit routes', () => {
     expect(auditPath(id, 'issues')).toBe(`/audit/${id}/issues`);
     expect(routeSection(`/audit/${id}/issues`)).toBe('issues');
     expect(routeSection(`/audit/${id}/security`)).toBe('security');
+    expect(routeSection(`/audit/${id}/reports`)).toBe('reports');
   });
 });

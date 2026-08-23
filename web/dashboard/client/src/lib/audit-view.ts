@@ -1,6 +1,6 @@
 export type AuditSection = 'overview' | 'issues' | 'headings' | 'links' | 'images' | 'schema' | 'geo' | 'performance' | 'accessibility' | 'technical' | 'security' | 'resources' | 'source' | 'history' | 'projects' | 'reports' | 'settings' | 'connect-extension';
 
-const auditSections = new Set<AuditSection>(['overview', 'issues', 'headings', 'links', 'images', 'schema', 'geo', 'performance', 'accessibility', 'technical', 'security', 'resources', 'source']);
+const auditSections = new Set<AuditSection>(['overview', 'issues', 'headings', 'links', 'images', 'schema', 'geo', 'performance', 'accessibility', 'technical', 'security', 'resources', 'source', 'reports']);
 
 export function isAuditSection(value: string): value is AuditSection {
   return auditSections.has(value as AuditSection);
