@@ -81,3 +81,5 @@ Extension release `5.3.1` corrects the earlier desktop-width popup treatment. Th
 Extension release `5.3.2` corrects a subsequent popup runtime defect in the **More** menu: active-state evaluation is now a shared function available to both the visible command buttons and the menu renderer. This prevents the scope error that could interrupt popup rendering after a successful audit.
 
 Extension release `5.3.3` corrects the confirmed compact-header startup error: the optional heading-overlay button is now checked before its click listener is registered. A startup-level test runs the popup with that header element intentionally absent, matching the compact layout and preventing the `addEventListener` null-reference failure reported by Chrome.
+
+Extension release `5.3.4` corrects the Chrome action-popup sizing feedback loop. The popup now declares a stable 420px intrinsic document width rather than constraining itself to Chrome's initially tiny viewport measurement. Isolated Chromium action testing confirmed the toolbar action opens successfully with a 420px root and body width, no root overflow, and no popup runtime exceptions.

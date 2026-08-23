@@ -8,9 +8,10 @@ const path = require('node:path');
 const css = fs.readFileSync(path.join(__dirname, 'popup.css'), 'utf8');
 const html = fs.readFileSync(path.join(__dirname, 'popup.html'), 'utf8');
 
-test('popup root is constrained to the viewport and never declares a desktop-width layout', () => {
-  assert.match(css, /html,body\{width:100%;max-width:100%;overflow-x:hidden\}/);
-  assert.match(css, /body\{\s*width:var\(--popup-width\);max-width:100vw;min-width:0;/);
+test('Chrome action popup keeps an intrinsic compact width instead of collapsing against the initial viewport', () => {
+  assert.match(css, /html\{width:var\(--popup-width\);overflow-x:hidden\}/);
+  assert.match(css, /body\{\s*width:var\(--popup-width\);min-width:var\(--popup-width\);max-width:var\(--popup-width\);height:600px;/);
+  assert.doesNotMatch(css, /max-width:100vw/);
   assert.doesNotMatch(css, /width:\s*(?:760|900|1000|1120)px/);
   assert.doesNotMatch(css, /min-width:\s*(?:900|1000)px/);
 });
