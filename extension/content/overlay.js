@@ -20,9 +20,17 @@ function SCC_TOGGLE_HEADING_OVERLAY() {
   const ROOT_ID = 'scc-heading-overlay-root';
   const STYLE_ID = 'scc-heading-overlay-style';
 
-  // Toggle off: tear down everything we created and restore prior state.
-  if (window.__sccOverlayActive) {
+  // Toggle off: tear down everything we created and restore prior state. Check
+  // the DOM root as well as the runtime flag so a stale flag can never leave
+  // markers visible after the top-bar toggle is pressed.
+  if (window.__sccOverlayActive || document.getElementById(ROOT_ID)) {
     try { window.__sccOverlayTeardown && window.__sccOverlayTeardown(); } catch (e) {}
+    const staleRoot = document.getElementById(ROOT_ID);
+    if (staleRoot && staleRoot.parentNode) staleRoot.parentNode.removeChild(staleRoot);
+    const staleStyle = document.getElementById(STYLE_ID);
+    if (staleStyle && staleStyle.parentNode) staleStyle.parentNode.removeChild(staleStyle);
+    window.__sccOverlayActive = false;
+    delete window.__sccOverlayTeardown;
     return { enabled: false, count: 0 };
   }
 

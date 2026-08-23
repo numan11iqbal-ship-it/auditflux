@@ -12,6 +12,11 @@ test('full report saves then opens the canonical SaaS audit instead of the legac
   assert.match(popup, /chrome\.tabs\.create\(\{ url: saved\.apiBase \+ '\/audit\/' \+ encodeURIComponent\(saved\.auditId\) \}\)/);
 });
 
+test('top-bar Web App action opens the canonical AuditFlux web application independently of an audit connection', () => {
+  assert.match(popup, /const webAppButton = \$\('#webAppBtn'\);/);
+  assert.match(popup, /chrome\.tabs\.create\(\{ url: 'https:\/\/auditflux\.vercel\.app\/' \}\)/);
+});
+
 test('quick actions use the section routing contract and render active-state buttons', () => {
   assert.match(popup, /AUDITFLUX_QUICK_ACTIONS\.commandItems\(DATA, AUDIT\)/);
   assert.match(popup, /function isQuickActionActive\(item\) \{/);

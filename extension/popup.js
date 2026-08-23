@@ -175,7 +175,7 @@ async function loadPlan() {
     PLAN = raw.plan;
     USAGE = raw;
     const badge = $('#planBadge');
-    if (badge) badge.textContent = raw.plan.name.toUpperCase();
+    if (badge) badge.textContent = raw.plan.name;
   } catch (e) { PLAN = null; }
 }
 
@@ -633,6 +633,11 @@ $('#rescanBtn').addEventListener('click', run);
 $('#errorRetry').addEventListener('click', run);
 const overlayButton = $('#overlayBtn');
 if (overlayButton) overlayButton.addEventListener('click', () => toggleOverlay().then(() => { if (activeTab === 'actions') render(); }));
+const webAppButton = $('#webAppBtn');
+if (webAppButton) webAppButton.addEventListener('click', () => {
+  chrome.tabs.create({ url: 'https://auditflux.vercel.app/' });
+  window.close();
+});
 $('#dashboardBtn').addEventListener('click', () => saveAuditToAuditFlux(true));
 const planBadgeEl = $('#planBadge');
 if (planBadgeEl) planBadgeEl.addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('pricing.html') }));

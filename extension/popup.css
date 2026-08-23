@@ -1,5 +1,5 @@
 /* Popup-specific layout. The popup is intentionally compact: deep analysis lives in SaaS. */
-:root{--popup-width:620px;--popup-max:620px}
+:root{--popup-width:760px;--popup-max:760px}
 /* Chrome measures an action popup from its intrinsic document width. Avoid a
    viewport-measured maximum here: Chrome starts that measurement at a tiny
    placeholder width, which collapses the visible action popup into a sliver. */
@@ -29,14 +29,14 @@ body *{min-width:0}
   padding:0;background:var(--navy-2);border-bottom:1px solid rgba(255,255,255,.08);
 }
 .quick-action{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;
-  padding:5px 3px;border:0;border-right:1px solid rgba(255,255,255,.1);border-bottom:2px solid transparent;
-  background:transparent;color:#dce6f7;font-size:9px;font-weight:700;white-space:nowrap;
+  display:flex;flex-direction:row;align-items:center;justify-content:center;gap:4px;min-height:42px;
+  padding:5px 4px;border:0;border-right:1px solid rgba(255,255,255,.1);border-bottom:2px solid transparent;
+  background:transparent;color:#dce6f7;font-size:9.5px;font-weight:700;white-space:nowrap;
   transition:background .12s,border-color .12s,color .12s;
 }
 .quick-action:last-child{border-right:0}.quick-action:hover{background:rgba(255,255,255,.11);color:#fff}
 .quick-action.is-active{background:rgba(47,90,222,.36);border-bottom-color:#6e92ff;color:#fff}
-.quick-action .qa-icon{color:#91b2ff;font-size:9px;font-weight:800;letter-spacing:-.03em}
+.quick-action .qa-icon,.quick-action .qa-short{display:none}
 .quick-action .qa-label{overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .quick-action .qa-count{padding:1px 4px;border-radius:10px;background:rgba(255,255,255,.14);font-size:8.5px;line-height:1.15}
 .quick-action.is-active .qa-count{background:rgba(255,255,255,.21)}
