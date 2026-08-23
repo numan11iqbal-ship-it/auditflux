@@ -1,18 +1,28 @@
-import { Button } from '@/components/ui/button';
+import { BrandMark } from '@/components/BrandMark';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { BookOpen, Braces, ChartNoAxesCombined, CircleGauge, FileWarning, FolderKanban, Image, Link2, ListTree, LogOut, Menu, SearchCheck, Settings, ShieldCheck, SlidersHorizontal, Wrench } from 'lucide-react';
+import { BookOpenCheck, Braces, ChartNoAxesCombined, CircleGauge, FileWarning, FolderKanban, Image, Link2, ListTree, LogOut, Menu, SearchCheck, Settings, ShieldCheck, SlidersHorizontal, Wrench } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import { useLocation } from 'wouter';
 
 const auditNavigation = [
   ['Overview', '/overview', CircleGauge], ['Issues', '/issues', FileWarning], ['Headings', '/headings', ListTree], ['Links', '/links', Link2], ['Images', '/images', Image], ['Schema', '/schema', Braces], ['GEO / AEO', '/geo', SearchCheck], ['Performance', '/performance', ChartNoAxesCombined], ['Accessibility', '/accessibility', ShieldCheck], ['Technical', '/technical', Wrench], ['Resources', '/resources', SlidersHorizontal],
 ];
-const workspaceNavigation = [['Projects', '/projects', FolderKanban], ['History', '/history', ChartNoAxesCombined], ['Reports', '/reports', BookOpen], ['Settings', '/settings', Settings]];
+const workspaceNavigation = [['Projects', '/projects', FolderKanban], ['All audits', '/history', ChartNoAxesCombined], ['Reports', '/reports', BookOpenCheck], ['Settings', '/settings', Settings]];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useSupabaseAuth();
   const [location, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
-  const entry = (label: string, path: string, Icon: typeof CircleGauge) => <button key={path} onClick={() => { setLocation(path); setOpen(false); }} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${location === path ? 'bg-primary/15 text-primary' : 'text-slate-400 hover:bg-white/[.05] hover:text-white'}`}><Icon className="h-4 w-4" /><span>{label}</span></button>;
-  return <div className="min-h-screen w-full bg-[#07111f] text-slate-100"><Button variant="ghost" size="icon" onClick={() => setOpen(!open)} className="fixed left-3 top-3 z-50 lg:hidden"><Menu /></Button><aside className={`${open ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/[.07] bg-[#091827] p-4 transition-transform lg:translate-x-0`}><div className="mb-6 flex items-center gap-3 px-2"><span className="grid h-8 w-8 place-items-center rounded-md bg-primary font-mono text-xs font-bold text-[#06110a]">AF</span><div><p className="font-semibold">AuditFlux</p><p className="font-mono text-[10px] uppercase tracking-[.18em] text-primary">Evidence cockpit</p></div></div><nav className="min-h-0 flex-1 space-y-5 overflow-y-auto"><section><p className="px-3 pb-2 font-mono text-[10px] uppercase tracking-[.2em] text-slate-500">Audit</p>{auditNavigation.map(([label, path, Icon]) => entry(label as string, path as string, Icon as typeof CircleGauge))}</section><section><p className="px-3 pb-2 font-mono text-[10px] uppercase tracking-[.2em] text-slate-500">Workspace</p>{workspaceNavigation.map(([label, path, Icon]) => entry(label as string, path as string, Icon as typeof CircleGauge))}<p className="mt-3 px-3 text-xs text-slate-500">Crawls, keywords, competitors, Search Console, analytics, and billing remain <strong className="font-medium text-slate-400">Coming Soon</strong> until connected.</p></section></nav><div className="mt-4 border-t border-white/[.07] pt-4"><p className="truncate px-2 text-sm">{user?.email}</p><Button variant="ghost" className="mt-2 w-full justify-start text-slate-400 hover:text-white" onClick={() => void signOut()}><LogOut className="mr-2 h-4 w-4" /> Sign out</Button></div></aside><main className="w-full min-w-0 min-h-screen pl-0 lg:pl-72"><div className="w-full min-w-0 px-4 py-5 sm:px-7 lg:px-10 xl:px-12">{children}</div></main></div>;
+  const email = user?.email || 'AuditFlux member';
+  const displayName = email.split('@')[0].replace(/[._-]/g, ' ');
+  const item = (label: string, path: string, Icon: typeof CircleGauge) => <button key={path} onClick={() => { setLocation(path); setOpen(false); }} className={`af-nav-item ${location === path ? 'is-active' : ''}`}><Icon size={17} strokeWidth={2} /><span>{label}</span></button>;
+
+  return <div className="af-app-shell"><button className="af-mobile-menu" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={20} /></button>{open && <button aria-label="Close navigation" className="af-nav-backdrop" onClick={() => setOpen(false)} />}
+    <aside className={`af-sidebar ${open ? 'is-open' : ''}`}>
+      <div className="af-brand"><BrandMark className="h-11 w-11" /><div><strong>Audit<span>Flux</span></strong><em>SEO Audit Tool</em></div></div>
+      <nav className="af-sidebar-nav"><p>Workspace</p>{auditNavigation.slice(0, 4).map(([label, path, Icon]) => item(label as string, path as string, Icon as typeof CircleGauge))}<p className="af-nav-split">Audit detail</p>{auditNavigation.slice(4).map(([label, path, Icon]) => item(label as string, path as string, Icon as typeof CircleGauge))}</nav>
+      <div className="af-sidebar-bottom">{workspaceNavigation.map(([label, path, Icon]) => item(label as string, path as string, Icon as typeof CircleGauge))}<div className="af-account"><span>{displayName.slice(0, 1).toUpperCase()}</span><div><strong>{displayName}</strong><em>{email}</em></div></div><button className="af-signout" onClick={() => void signOut()}><LogOut size={16} />Sign out</button></div>
+    </aside>
+    <main className="af-shell-main"><header className="af-topbar"><div className="af-topbar-brand"><BrandMark className="h-8 w-8" /><div><strong>Audit<span>Flux</span></strong><em>Evidence workspace</em></div></div><div className="af-topbar-status"><span className="af-live-dot" />Authenticated workspace</div></header><div className="af-main-content">{children}</div></main>
+  </div>;
 }
