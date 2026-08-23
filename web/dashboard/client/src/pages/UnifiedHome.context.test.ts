@@ -12,6 +12,12 @@ describe('unified AuditFlux workspace startup', () => {
     expect(source).not.toContain('routeAuditId || historyResult.audits[0]?.id');
   });
 
+  it('prevents an earlier audit request from overwriting the requested audit and verifies the server response identity', () => {
+    expect(source).toContain('auditRequestSequence');
+    expect(source).toContain('requestSequence !== auditRequestSequence.current');
+    expect(source).toContain('loaded.audit?.id');
+  });
+
   it('routes a paired browser to the latest real saved audit and reserves the empty state for a workspace with no audits', () => {
     expect(source).toContain('workspaceStartupState');
     expect(source).toContain("extensionConnection === 'connected' && history[0]?.id");
