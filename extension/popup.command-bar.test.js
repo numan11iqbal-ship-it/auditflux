@@ -7,11 +7,12 @@ const path = require('node:path');
 
 const popup = fs.readFileSync(path.join(__dirname, 'popup.js'), 'utf8');
 
-test('full report saves then opens the canonical signed-in Export & Report Center instead of a deployment alias or legacy extension dashboard', () => {
-  assert.match(popup, /async function openFullReport\(\) \{\s*const tab = await chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/'\), active: true \}\);\s*await saveAuditToAuditFlux\(true, tab\?\.id\);/);
+test('full report saves and opens the exact current audit Reports route instead of a deployment alias, legacy dashboard, or generic workspace', () => {
+  assert.match(popup, /async function openFullReport\(\) \{\s*const tab = await chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/'\), active: true \}\);\s*await saveAuditToAuditFlux\(true, tab\?\.id, 'reports'\);/);
   assert.match(popup, /\$\('#dashboardBtn'\)\.addEventListener\('click', \(\) => void openFullReport\(\)\)/);
   assert.match(popup, /const AUDITFLUX_WEB_APP_ORIGIN = 'https:\/\/auditflux\.vercel\.app';/);
-  assert.match(popup, /function openSavedReport\(auditId, tabId\) \{/);
+  assert.match(popup, /function openSavedAudit\(handoff, section, tabId\) \{/);
+  assert.match(popup, /AUDITFLUX_HANDOFF\.encodeHandoff\(handoff\)/);
   assert.match(popup, /chrome\.tabs\.update\(tabId, \{ url \}\)/);
   assert.match(popup, /auditflux:get-popup-connection/);
   assert.match(popup, /async function currentAuditPayload\(\)/);
@@ -23,15 +24,18 @@ test('full report saves then opens the canonical signed-in Export & Report Cente
   assert.doesNotMatch(popup, /chrome\.storage\.local\.get\(\{ sccLatestSavedAudit/);
   assert.match(popup, /CURRENT_AUDIT_SAVE\?\.key === saveKey/);
   assert.match(popup, /This current-tab audit is already saved to AuditFlux/);
+  assert.match(popup, /function handoffForSavedAudit\(payload, response, connection\)/);
+  assert.match(popup, /source: 'extension'/);
+  assert.match(popup, /chrome\.runtime\.sendMessage\(\{ type: 'auditflux:audit-saved', handoff \}\)/);
   assert.match(popup, /auditFluxWebAppUrl\('\/connect-extension'\)/);
 });
 
-test('top-bar Web App action opens the canonical signed-in workspace immediately without waiting for the current audit save path', () => {
+test('top-bar Web App action saves and opens the exact current audit Overview route without falling back to a previous workspace audit', () => {
   const webAppFunction = popup.match(/async function openWebAppForCurrentAudit\(\) \{[\s\S]*?\n\}\n\nfunction showState/)[0];
   assert.match(popup, /const webAppButton = \$\('#webAppBtn'\);/);
   assert.match(popup, /async function openWebAppForCurrentAudit\(\) \{/);
-  assert.doesNotMatch(webAppFunction, /saveAuditToAuditFlux\(true\)/);
-  assert.match(webAppFunction, /chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/'\) \}\)/);
+  assert.match(webAppFunction, /chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/'\), active: true \}\)/);
+  assert.match(webAppFunction, /saveAuditToAuditFlux\(true, tab\?\.id, 'overview'\)/);
   assert.match(popup, /webAppButton\.addEventListener\('click', \(\) => void openWebAppForCurrentAudit\(\)\)/);
 });
 

@@ -96,17 +96,18 @@ test('re-scans the registered tab and persists a new normalized audit rather tha
   const listeners = {}; const registry = { 'audit-old': { tabId: 7, windowId: 2, url: 'https://example.com/article', savedAt: Date.now() } }; let stored = null;
   const chrome = {
     storage: { local: { get: async () => ({ auditfluxAuditTabRegistry: registry }), set: async value => { stored = value; } }, session: { get: async () => ({ auditfluxConnection: { apiBase: 'https://auditflux.vercel.app', accessToken: 'token' } }), set: async () => {} } },
-    runtime: { onMessage: { addListener: listener => { listeners.internal = listener; } }, onMessageExternal: { addListener: listener => { listeners.external = listener; } } },
+    runtime: { id: 'extension-id', onMessage: { addListener: listener => { listeners.internal = listener; } }, onMessageExternal: { addListener: listener => { listeners.external = listener; } } },
     tabs: { get: async () => ({ id: 7, url: 'https://example.com/article' }), update: async () => {}, query: async () => [], sendMessage: async () => {} }, windows: { update: async () => {} },
     scripting: { executeScript: async options => options.func.name === 'SCC_ANALYZE' ? [{ result: { page: { url: 'https://example.com/article' } } }] : [{ result: null }] },
   };
   const source = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');
-  vm.runInNewContext(source, { chrome, importScripts: () => {}, Date, URL, fetch: async () => ({ ok: true, json: async () => ({ auditId: 'audit-new', duplicate: false }) }), SCC_ANALYZE: async () => ({}), SCC_AUDIT: () => ({ overall: 91 }), AUDITFLUX_CONTRACT: { normalizeAudit: () => ({ clientAuditId: 'client-new' }) }, SCC_TOGGLE_HEADING_OVERLAY: () => ({}), SCC_LOCATE_AUDIT_TARGET: () => ({}) });
+  vm.runInNewContext(source, { chrome, importScripts: () => {}, Date, URL, fetch: async () => ({ ok: true, json: async () => ({ auditId: 'audit-new', auditUrl: 'https://example.com/article', clientAuditId: 'client-new', duplicate: false }) }), SCC_ANALYZE: async () => ({}), SCC_AUDIT: () => ({ overall: 91 }), AUDITFLUX_CONTRACT: { normalizeAudit: () => ({ clientAuditId: 'client-new', url: 'https://example.com/article', capturedAt: '2026-08-23T10:00:00.000Z', tab: { tabId: 7 } }) }, AUDITFLUX_HANDOFF: { createCurrentAuditHandoff: input => ({ ...input, hostname: 'example.com', source: 'extension' }), isCurrentAuditHandoff: () => true }, SCC_TOGGLE_HEADING_OVERLAY: () => ({}), SCC_LOCATE_AUDIT_TARGET: () => ({}) });
   let response; listeners.external({ type: 'auditflux:rescan', auditId: 'audit-old' }, { origin: 'https://auditflux.vercel.app' }, value => { response = value; });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(response.ok, true);
   assert.equal(response.auditId, 'audit-new');
   assert.equal(stored.sccLatestSavedAudit.auditId, 'audit-new');
+  assert.equal(stored.sccLatestSavedAudit.handoff.auditId, 'audit-new');
 });
 
 test('opens the exact saved audit URL when a locator has no active registered tab, then executes the real locator', async () => {

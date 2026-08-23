@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { connectionStateFromResponse, locateSucceeded, overlayToggled, rescanSucceeded } from './extension-bridge';
+import { connectionStateFromResponse, currentAuditHandoff, currentAuditRoute, handoffFromLocation, locateSucceeded, overlayToggled, rescanSucceeded } from './extension-bridge';
 
 describe('AuditFlux extension bridge state', () => {
   it('exposes a connected state only for an explicit successful extension reply', () => {
@@ -25,5 +25,15 @@ describe('AuditFlux extension bridge state', () => {
     expect(rescanSucceeded({ ok: true, auditId: 'audit-new' })).toBe(true);
     expect(rescanSucceeded({ ok: true })).toBe(false);
     expect(rescanSucceeded({ ok: false, auditId: 'audit-new' })).toBe(false);
+  });
+
+  it('accepts only a complete extension current-audit handoff and preserves its exact audited URL in the route', () => {
+    const handoff = currentAuditHandoff({ auditId: 'audit-current', clientAuditId: 'client-current', auditedUrl: 'https://social-media-downloader-sav-down.vercel.app/path?source=extension', normalizedUrl: 'https://social-media-downloader-sav-down.vercel.app/path?source=extension', hostname: 'social-media-downloader-sav-down.vercel.app', tabId: 17, auditTimestamp: '2026-08-23T10:00:00.000Z', extensionId: 'extension-id', workspaceSessionId: 'connection-id', source: 'extension' });
+    expect(handoff).not.toBeNull();
+    const route = currentAuditRoute('audit-current', 'reports', handoff!);
+    expect(route).toContain('/audit/audit-current/reports?handoff=');
+    expect(handoffFromLocation(route)).toEqual(handoff);
+    expect(currentAuditHandoff({ ...handoff, source: 'legacy' })).toBeNull();
+    expect(currentAuditHandoff({ ...handoff, auditedUrl: 'https://photoroom.com/' })).toBeNull();
   });
 });

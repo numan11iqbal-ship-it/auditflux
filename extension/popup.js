@@ -23,6 +23,11 @@ let CURRENT_AUDIT_SAVE = null;
 const $ = (s) => document.querySelector(s);
 const AUDITFLUX_WEB_APP_ORIGIN = 'https://auditflux.vercel.app';
 
+function traceCurrentAudit(label, handoff) {
+  if (!globalThis.__AUDITFLUX_DEV__ || !handoff) return;
+  console.debug(label, { auditId: handoff.auditId, auditedUrl: handoff.auditedUrl, tabId: handoff.tabId, auditTimestamp: handoff.auditTimestamp });
+}
+
 function auditFluxWebAppUrl(path = '/') {
   return AUDITFLUX_WEB_APP_ORIGIN + path;
 }
@@ -57,8 +62,8 @@ function auditFluxSessionHeaders(connection) {
   return connection?.sessionToken ? { 'X-AuditFlux-Extension-Session': connection.sessionToken } : connection?.accessToken ? { Authorization: 'Bearer ' + connection.accessToken } : {};
 }
 
-function openSavedReport(auditId, tabId) {
-  const url = auditFluxWebAppUrl('/audit/' + encodeURIComponent(auditId) + '/reports');
+function openSavedAudit(handoff, section, tabId) {
+  const url = auditFluxWebAppUrl('/audit/' + encodeURIComponent(handoff.auditId) + '/' + section + '?handoff=' + AUDITFLUX_HANDOFF.encodeHandoff(handoff));
   if (tabId !== undefined && tabId !== null) return chrome.tabs.update(tabId, { url });
   return chrome.tabs.create({ url });
 }
@@ -78,26 +83,40 @@ async function currentAuditPayload() {
   return payload;
 }
 
-async function saveAuditToAuditFlux(openWhenSaved, reportTabId) {
+function handoffForSavedAudit(payload, response, connection) {
+  return AUDITFLUX_HANDOFF.createCurrentAuditHandoff({
+    auditId: response.auditId,
+    clientAuditId: payload.clientAuditId,
+    auditedUrl: payload.url,
+    normalizedUrl: payload.url,
+    tabId: payload.tab?.tabId,
+    auditTimestamp: payload.capturedAt,
+    extensionId: chrome.runtime.id,
+    workspaceSessionId: connection?.connection?.id || null,
+  });
+}
+
+async function saveAuditToAuditFlux(openWhenSaved, targetTabId, destination = 'reports') {
   let payload;
   try { payload = await currentAuditPayload(); } catch (error) { return toast(error?.message || 'Run an audit before saving it'); }
   const saveKey = `${payload.tab?.tabId}:${payload.url}:${payload.capturedAt}`;
   let saved = CURRENT_AUDIT_SAVE?.key === saveKey ? CURRENT_AUDIT_SAVE.saved : null;
   AUDIT.__auditfluxClientAuditId = payload.clientAuditId;
   if (saved) {
-    if (openWhenSaved) { await openSavedReport(saved.auditId, reportTabId); return window.close(); }
+    if (openWhenSaved && saved.handoff) { await openSavedAudit(saved.handoff, destination, targetTabId); return window.close(); }
     return toast('This current-tab audit is already saved to AuditFlux');
   }
   const connection = await auditFluxConnection();
   if (!connection?.apiBase || (!connection?.accessToken && !connection?.sessionToken)) {
     if (openWhenSaved) {
       const url = auditFluxWebAppUrl('/connect-extension');
-      if (reportTabId !== undefined && reportTabId !== null) chrome.tabs.update(reportTabId, { url }); else chrome.tabs.create({ url });
+      if (targetTabId !== undefined && targetTabId !== null) chrome.tabs.update(targetTabId, { url }); else chrome.tabs.create({ url });
     }
     return toast('Reconnect AuditFlux Extension in the Web App before saving this new audit');
   }
   const backend = sccNormalizeBackendUrl(connection.apiBase);
   if (!backend || !await sccRequestBackendPermission(backend)) return toast('Grant access to the AuditFlux API before saving');
+  payload.auditContext = { source: 'extension', auditedUrl: payload.url, normalizedUrl: payload.url, hostname: new URL(payload.url).hostname, tabId: payload.tab?.tabId ?? null, auditTimestamp: payload.capturedAt, extensionId: chrome.runtime.id, workspaceSessionId: connection?.connection?.id || null, clientAuditId: payload.clientAuditId };
   try {
     const response = await fetch(backend + '/api/audits', {
       method: 'POST',
@@ -107,29 +126,32 @@ async function saveAuditToAuditFlux(openWhenSaved, reportTabId) {
     const body = await response.json().catch(() => null);
     if (!response.ok || !body?.auditId) return toast(body?.error || 'AuditFlux could not save this audit');
     if (body.clientAuditId !== payload.clientAuditId || !sameAuditUrl(body.auditUrl, payload.url)) return toast('AuditFlux rejected a mismatched saved audit. Reopen the extension and run the current page again.');
-    saved = { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: backend, url: payload.url, tabId: payload.tab?.tabId ?? null, savedAt: Date.now() };
+    const handoff = handoffForSavedAudit(payload, body, connection);
+    if (!handoff) return toast('AuditFlux could not establish the current audit identity. Run the audit again.');
+    traceCurrentAudit('EXTENSION AUDIT CREATED', handoff);
+    saved = { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: backend, url: payload.url, tabId: payload.tab?.tabId ?? null, savedAt: Date.now(), handoff };
     CURRENT_AUDIT_SAVE = { key: saveKey, saved };
     await chrome.storage.local.set({ sccLatestSavedAudit: saved });
-    chrome.runtime.sendMessage({ type: 'auditflux:audit-saved', auditId: body.auditId, url: DATA.page.url }).catch(() => null);
+    chrome.runtime.sendMessage({ type: 'auditflux:audit-saved', handoff }).catch(() => null);
     await chrome.runtime.sendMessage({ type: 'auditflux:register-audit', auditId: body.auditId, tabId: TAB.id, windowId: TAB.windowId, url: DATA.page.url });
     toast(body.duplicate ? 'This audit was already saved' : 'Audit saved to AuditFlux');
   } catch { return toast('AuditFlux backend unavailable'); }
   if (openWhenSaved) {
     // API connectivity may be configured from a Vercel deployment alias. Open
     // reports on the canonical origin so the user’s existing SaaS login is used.
-    await openSavedReport(saved.auditId, reportTabId);
+    await openSavedAudit(saved.handoff, destination, targetTabId);
     window.close();
   }
 }
 
 async function openFullReport() {
   const tab = await chrome.tabs.create({ url: auditFluxWebAppUrl('/'), active: true });
-  await saveAuditToAuditFlux(true, tab?.id);
+  await saveAuditToAuditFlux(true, tab?.id, 'reports');
 }
 
 async function openWebAppForCurrentAudit() {
-  chrome.tabs.create({ url: auditFluxWebAppUrl('/') });
-  window.close();
+  const tab = await chrome.tabs.create({ url: auditFluxWebAppUrl('/'), active: true });
+  await saveAuditToAuditFlux(true, tab?.id, 'overview');
 }
 
 function showState(which) {

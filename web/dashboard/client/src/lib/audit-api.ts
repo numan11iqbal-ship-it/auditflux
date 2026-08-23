@@ -30,6 +30,23 @@ export function normalizeSavedAudit(value: unknown): SavedAudit {
   };
 }
 
+function canonicalAuditUrl(value: unknown) {
+  try { const url = new URL(String(value || '')); if (!/^https?:$/.test(url.protocol) || !url.hostname) return null; url.hash = ''; return url.href; } catch { return null; }
+}
+
+export function verifySavedAuditIdentity(saved: SavedAudit, expected: { auditId: string; normalizedUrl: string }) {
+  const returnedUrl = canonicalAuditUrl(saved.audit.url);
+  const auditIdMatch = String(saved.audit.id) === expected.auditId;
+  const urlMatch = returnedUrl === expected.normalizedUrl;
+  const context = saved.audit.payload && typeof saved.audit.payload === 'object' ? (saved.audit.payload as Record<string, unknown>).auditContext : null;
+  const extensionContext = context && typeof context === 'object' ? context as Record<string, unknown> : null;
+  const contextAuditIdMatch = extensionContext?.source === 'extension' && extensionContext.auditId === expected.auditId;
+  const contextUrlMatch = canonicalAuditUrl(extensionContext?.normalizedUrl) === expected.normalizedUrl && canonicalAuditUrl(extensionContext?.auditedUrl) === expected.normalizedUrl;
+  if (import.meta.env.DEV) console.debug('AUDIT VALIDATION', { auditId: expected.auditId, auditedUrl: expected.normalizedUrl, auditIdMatch, urlMatch, contextAuditIdMatch, contextUrlMatch });
+  if (!auditIdMatch || !urlMatch || !contextAuditIdMatch || !contextUrlMatch) throw new Error('Audit verification failed. The returned audit does not match the current extension audit.');
+  return { auditIdMatch, urlMatch };
+}
+
 async function request<T>(path: string, token: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
   const body = await response.json().catch(() => ({}));
@@ -40,6 +57,7 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
 export const auditApi = {
   history: (token: string) => request<{ audits: Record<string, any>[] }>('/api/audits/history', token),
   audit: async (token: string, id: string) => normalizeSavedAudit(await request<unknown>(`/api/audits/${encodeURIComponent(id)}`, token)),
+  currentExtensionAudit: async (token: string, expected: { auditId: string; normalizedUrl: string }) => { if (import.meta.env.DEV) console.debug('WEB APP AUDIT REQUESTED', { auditId: expected.auditId, auditedUrl: expected.normalizedUrl }); const saved = normalizeSavedAudit(await request<unknown>(`/api/audits/${encodeURIComponent(expected.auditId)}`, token)); if (import.meta.env.DEV) console.debug('SUPABASE AUDIT RETURNED', { auditId: saved.audit.id, auditedUrl: saved.audit.url }); verifySavedAuditIdentity(saved, expected); return saved; },
   projects: (token: string) => request<{ projects: Record<string, any>[] }>('/api/projects', token),
   createProject: (token: string, input: { name: string; primaryUrl: string }) => request<{ project: Record<string, any> }>('/api/projects', token, { method: 'POST', body: JSON.stringify(input) }),
 };

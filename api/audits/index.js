@@ -9,6 +9,7 @@ async function handler(req, res) {
   try {
     const result = await persistAudit(req);
     console.info('auditflux', auditPersistedEvent(result));
+    if (process.env.NODE_ENV !== 'production') console.debug('auditflux current audit persisted', { auditId: result.auditId, auditedUrl: result.auditUrl, clientAuditId: result.clientAuditId });
     return json(res, 201, result);
   } catch (error) { return failure(res, error); }
 }

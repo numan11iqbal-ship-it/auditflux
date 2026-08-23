@@ -213,6 +213,11 @@ async function persistAudit(req) {
   body.url = normalizedUrl;
   if (body.detail?.page && typeof body.detail.page === 'object') body.detail.page.url = normalizedUrl;
   if (body.tab && typeof body.tab === 'object') body.tab.url = normalizeAuditUrl(body.tab.url) || normalizedUrl;
+  if (body.auditContext?.source === 'extension') {
+    const contextUrl = normalizeAuditUrl(body.auditContext.normalizedUrl || body.auditContext.auditedUrl);
+    if (!contextUrl || contextUrl !== body.url || body.auditContext.clientAuditId !== body.clientAuditId || !Number.isInteger(body.auditContext.tabId) || typeof body.auditContext.auditTimestamp !== 'string' || typeof body.auditContext.extensionId !== 'string' || !body.auditContext.extensionId) throw Object.assign(new Error('The current extension audit context does not match the normalized audit payload.'), { status: 400 });
+    body.auditContext = { ...body.auditContext, auditedUrl: body.url, normalizedUrl: body.url, hostname: new URL(body.url).hostname, source: 'extension' };
+  }
   const workspaceId = await workspaceFor(db, user.id);
   const project = await projectForAudit(db, user.id, workspaceId, body);
   const { data: existing, error: existingError } = await db.from('audits').select('id,url,client_audit_id').eq('client_audit_id', body.clientAuditId).maybeSingle();
@@ -223,6 +228,11 @@ async function persistAudit(req) {
   }
   const { data: audit, error } = await db.from('audits').insert(auditRow(body, project, workspaceId, user.id)).select('id').single();
   if (error) throw error;
+  if (body.auditContext?.source === 'extension') {
+    body.auditContext = { ...body.auditContext, auditId: audit.id };
+    const persistedContext = await db.from('audits').update({ payload: cloneWithoutSecrets(body) }).eq('id', audit.id);
+    if (persistedContext.error) throw persistedContext.error;
+  }
   await insertDetails(db, audit.id, body);
   const usage = await db.from('usage_records').insert({ workspace_id: workspaceId, user_id: user.id, operation: 'audit_saved', audit_id: audit.id });
   if (usage.error) throw usage.error;

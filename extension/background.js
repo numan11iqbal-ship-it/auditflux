@@ -1,8 +1,9 @@
-importScripts('content/overlay.js', 'engine/analyzer.js', 'engine/rules.js', 'engine/audit-contract.js');
+importScripts('content/overlay.js', 'engine/analyzer.js', 'engine/rules.js', 'engine/audit-contract.js', 'engine/audit-handoff.js');
 
 const REGISTRY_KEY = 'auditfluxAuditTabRegistry';
 const SESSION_KEY = 'auditfluxConnection';
 const INSTALLATION_KEY = 'auditfluxInstallationId';
+const CURRENT_AUDIT_HANDOFF_KEY = 'auditfluxCurrentAuditHandoff';
 const AUDITFLUX_WEB_APP_ORIGIN = 'https://auditflux.vercel.app';
 const AUDITFLUX_SAAS_ORIGINS = new Set([AUDITFLUX_WEB_APP_ORIGIN]);
 
@@ -78,6 +79,30 @@ async function emitWorkspaceEvent(eventType, payload = {}) {
   await Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, { type: 'auditflux:workspace-event', eventType, payload }).catch(() => null)));
 }
 
+function extensionRuntimeId() { return chrome.runtime?.id || 'auditflux-extension'; }
+
+function validPopupHandoff(value) {
+  return AUDITFLUX_HANDOFF.isCurrentAuditHandoff(value) && value.extensionId === extensionRuntimeId();
+}
+
+async function rememberCurrentAuditHandoff(handoff) {
+  await chrome.storage.session.set({ [CURRENT_AUDIT_HANDOFF_KEY]: handoff });
+  await emitWorkspaceEvent('AUDITFLUX_AUDIT_SAVED', handoff);
+}
+
+function handoffForPersistedAudit(payload, result, session) {
+  return AUDITFLUX_HANDOFF.createCurrentAuditHandoff({
+    auditId: result.auditId,
+    clientAuditId: payload.clientAuditId,
+    auditedUrl: result.auditUrl || payload.url,
+    normalizedUrl: result.auditUrl || payload.url,
+    tabId: payload.tab?.tabId,
+    auditTimestamp: payload.capturedAt,
+    extensionId: extensionRuntimeId(),
+    workspaceSessionId: session?.connection?.id || null,
+  });
+}
+
 async function pairExtension(message, sender) {
   if (!officialSender(sender) || typeof message?.nonce !== 'string' || !message.nonce.startsWith('af_conn_')) return { ok: false, reason: 'INVALID_PAIRING_REQUEST' };
   const version = chrome.runtime.getManifest().version; const installId = await installationId();
@@ -133,7 +158,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'auditflux:pair') { pairExtension(message, sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:connection-status') { pairingStatus(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:get-popup-connection') { popupConnection(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
-  if (message?.type === 'auditflux:audit-saved') { if (!popupSender(sender) || typeof message.auditId !== 'string') return sendResponse({ ok: false, reason: 'INVALID_CALLER' }); emitWorkspaceEvent('AUDITFLUX_AUDIT_SAVED', { auditId: message.auditId, url: message.url || null, createdAt: Date.now() }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false, reason: 'EVENT_FAILED' })); return true; }
+  if (message?.type === 'auditflux:audit-saved') { if (!popupSender(sender) || !validPopupHandoff(message.handoff)) return sendResponse({ ok: false, reason: 'INVALID_CURRENT_AUDIT_HANDOFF' }); rememberCurrentAuditHandoff(message.handoff).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false, reason: 'EVENT_FAILED' })); return true; }
   if (message?.type === 'auditflux:disconnect') { disconnectPairing(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:command') { if (!officialSender(sender)) return sendResponse({ ok: false, reason: 'INVALID_ORIGIN' }); runAuditCommand(message.command, sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'COMMAND_FAILED' })); return true; }
   if (message?.type === 'auditflux:register-audit') {
@@ -169,18 +194,21 @@ async function runAuditCommand(message, sender) {
       if (!data?.page?.url) return { ok: false, reason: 'ANALYSIS_FAILED' };
       const audit = SCC_AUDIT(data);
       const payload = AUDITFLUX_CONTRACT.normalizeAudit({ data, audit, tab: { id: record.tabId, windowId: record.windowId, url: tab.url } });
+      payload.auditContext = { source: 'extension', auditedUrl: payload.url, normalizedUrl: payload.url, hostname: new URL(payload.url).hostname, tabId: payload.tab?.tabId ?? null, auditTimestamp: payload.capturedAt, extensionId: extensionRuntimeId(), workspaceSessionId: session?.connection?.id || null, clientAuditId: payload.clientAuditId };
       const response = await fetch(new URL('/api/audits', session.apiBase).toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...sessionHeaders(session) },
         body: JSON.stringify(payload),
       });
       const body = await response.json().catch(() => null);
-      if (!response.ok || !body?.auditId) return { ok: false, reason: 'SAVE_FAILED', error: body?.error || 'AuditFlux could not save the new audit.' };
+      if (!response.ok || !body?.auditId || body.clientAuditId !== payload.clientAuditId || !sameAuditedPage(body.auditUrl, payload.url)) return { ok: false, reason: 'SAVE_FAILED', error: body?.error || 'AuditFlux could not verify the new audit.' };
+      const handoff = handoffForPersistedAudit(payload, body, session);
+      if (!handoff) return { ok: false, reason: 'SAVE_FAILED', error: 'AuditFlux could not establish the current audit identity.' };
       records[body.auditId] = { tabId: record.tabId, windowId: record.windowId, url: data.page.url, savedAt: Date.now() };
       await saveRegistry(records);
-      await chrome.storage.local.set({ sccLatest: { data, audit, tabId: record.tabId, savedAt: Date.now() }, sccLatestSavedAudit: { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: session.apiBase, savedAt: Date.now() } });
-      await emitWorkspaceEvent('AUDITFLUX_AUDIT_SAVED', { auditId: body.auditId, url: data.page.url, createdAt: Date.now(), rescan: true });
-      return { ok: true, auditId: body.auditId, duplicate: Boolean(body.duplicate), sender: sender.origin || null };
+      await chrome.storage.local.set({ sccLatest: { data, audit, tabId: record.tabId, savedAt: Date.now() }, sccLatestSavedAudit: { clientAuditId: payload.clientAuditId, auditId: body.auditId, apiBase: session.apiBase, savedAt: Date.now(), handoff } });
+      await rememberCurrentAuditHandoff(handoff);
+      return { ok: true, auditId: body.auditId, handoff, duplicate: Boolean(body.duplicate), sender: sender.origin || null };
     }
     if (message.type !== 'auditflux:locate' || !message.locator) return { ok: false, reason: 'INVALID_REQUEST' };
     const result = await chrome.scripting.executeScript({ target: { tabId: record.tabId }, func: SCC_LOCATE_AUDIT_TARGET, args: [message.locator] });

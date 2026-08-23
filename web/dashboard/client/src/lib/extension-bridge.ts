@@ -1,5 +1,6 @@
 export type ExtensionConnectionState = 'unknown' | 'connecting' | 'connected' | 'not_connected' | 'expired' | 'failed';
 type BridgeResponse = { ok?: boolean; state?: ExtensionConnectionState; reason?: string; connection?: Record<string, unknown>; auditId?: string; enabled?: boolean; located?: boolean; duplicate?: boolean; error?: string };
+export type CurrentAuditHandoff = { auditId: string; clientAuditId: string; auditedUrl: string; normalizedUrl: string; hostname: string; tabId: number; auditTimestamp: string; extensionId: string; workspaceSessionId: string | null; source: 'extension' };
 
 function requestId() { return `af_web_${crypto.randomUUID()}`; }
 
@@ -23,6 +24,22 @@ export async function extensionStatus() { return bridgeRequest('auditflux:connec
 export async function disconnectExtension(token: string, connectionId?: string) { if (connectionId) await pairingApi(token, { action: 'disconnect', connectionId }); return bridgeRequest('auditflux:disconnect-request'); }
 export async function connectedBrowsers(token: string) { const data = await pairingApi(token, undefined, 'GET'); return Array.isArray(data.connections) ? data.connections as Record<string, unknown>[] : []; }
 export async function extensionCommand(command: Record<string, unknown>) { return bridgeRequest('auditflux:extension-command', { command }); }
+
+function canonicalUrl(value: unknown) { try { const url = new URL(String(value || '')); if (!/^https?:$/.test(url.protocol) || !url.hostname) return null; url.hash = ''; return url.href; } catch { return null; } }
+
+export function currentAuditHandoff(value: unknown): CurrentAuditHandoff | null {
+  const raw = value && typeof value === 'object' ? value as Record<string, unknown> : null;
+  const auditedUrl = canonicalUrl(raw?.auditedUrl); const normalizedUrl = canonicalUrl(raw?.normalizedUrl); const auditId = typeof raw?.auditId === 'string' ? raw.auditId : ''; const clientAuditId = typeof raw?.clientAuditId === 'string' ? raw.clientAuditId : ''; const auditTimestamp = typeof raw?.auditTimestamp === 'string' ? raw.auditTimestamp : ''; const extensionId = typeof raw?.extensionId === 'string' ? raw.extensionId : ''; const tabId = typeof raw?.tabId === 'number' && Number.isInteger(raw.tabId) ? raw.tabId : null;
+  if (raw?.source !== 'extension' || !auditId || !clientAuditId || !auditedUrl || auditedUrl !== normalizedUrl || !auditTimestamp || !extensionId || tabId === null) return null;
+  if (raw?.hostname !== new URL(auditedUrl).hostname) return null;
+  return { auditId, clientAuditId, auditedUrl, normalizedUrl, hostname: String(raw.hostname), tabId, auditTimestamp, extensionId, workspaceSessionId: typeof raw.workspaceSessionId === 'string' ? raw.workspaceSessionId : null, source: 'extension' };
+}
+
+export function handoffFromLocation(location: string) {
+  try { const encoded = new URLSearchParams(location.split('?')[1] || '').get('handoff'); return encoded ? currentAuditHandoff(JSON.parse(encoded)) : null; } catch { return null; }
+}
+
+export function currentAuditRoute(auditId: string, section: string, handoff: CurrentAuditHandoff) { return `/audit/${encodeURIComponent(auditId)}/${section}?handoff=${encodeURIComponent(JSON.stringify(handoff))}`; }
 
 export type WorkspaceBridgeEvent = { eventType: 'AUDITFLUX_EXTENSION_CONNECTED' | 'AUDITFLUX_AUDIT_SAVED' | 'AUDITFLUX_AUDIT_UPDATED' | 'AUDITFLUX_EXTENSION_DISCONNECTED'; payload: Record<string, unknown> };
 
