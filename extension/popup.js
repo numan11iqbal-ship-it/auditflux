@@ -278,10 +278,51 @@ function render() {
     t.setAttribute('aria-selected', String(on));
   });
 
-  const views = { overview: viewOverview, issues: viewIssues, actions: viewActions };
+  renderQuickCommand();
+  const views = {
+    overview: viewOverview, issues: viewIssues, headings: viewHeadings, links: viewLinks,
+    images: viewImages, schema: viewSchema, performance: viewPerformance, geo: viewGeo, actions: viewActions
+  };
   $('#panel').innerHTML = views[activeTab]();
   $('#panel').scrollTop = 0;
   bindPanel();
+}
+
+function renderQuickCommand() {
+  const command = $('#quickCommand');
+  if (!command || !DATA || !AUDIT || !window.AUDITFLUX_QUICK_ACTIONS) return;
+  const actions = AUDITFLUX_QUICK_ACTIONS.commandItems(DATA, AUDIT);
+  const chip = (item) => `<button class="quick-action ${activeTab === item.id ? 'is-active' : ''}" data-view="${item.id}" data-priority="${item.priority}" title="${esc(item.title)}" aria-pressed="${activeTab === item.id}">
+    <span class="qa-icon" aria-hidden="true">${esc(item.icon)}</span><span class="qa-label">${esc(item.label)}</span><span class="qa-short">${esc(item.shortLabel)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`;
+  command.classList.remove('hidden');
+  command.innerHTML = `${actions.map(chip).join('')}<div class="quick-more-wrap"><button class="quick-more" id="quickMore" aria-expanded="false">More ▾</button><div class="quick-more-menu hidden" id="quickMoreMenu"></div></div>`;
+  command.querySelectorAll('.quick-action').forEach(button => button.addEventListener('click', () => {
+    const view = AUDITFLUX_QUICK_ACTIONS.sectionView(button.dataset.view);
+    if (!view) return;
+    activeTab = view; issueFilter = 'all'; render();
+  }));
+  const more = $('#quickMore');
+  if (more) more.addEventListener('click', () => {
+    const menu = $('#quickMoreMenu'); const isHidden = menu.classList.toggle('hidden');
+    more.setAttribute('aria-expanded', String(!isHidden));
+  });
+  requestAnimationFrame(() => syncQuickOverflow(actions));
+}
+
+function syncQuickOverflow(actions) {
+  const menu = $('#quickMoreMenu'); const wrap = document.querySelector('.quick-more-wrap');
+  if (!menu || !wrap) return;
+  const hidden = actions.filter(item => {
+    const button = document.querySelector(`.quick-action[data-view="${item.id}"]`);
+    return button && getComputedStyle(button).display === 'none';
+  });
+  wrap.classList.toggle('hidden', hidden.length === 0);
+  menu.innerHTML = hidden.map(item => `<button class="quick-more-item ${activeTab === item.id ? 'is-active' : ''}" data-quick-view="${item.id}"><span>${esc(item.label)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`).join('');
+  menu.querySelectorAll('[data-quick-view]').forEach(button => button.addEventListener('click', () => {
+    const view = AUDITFLUX_QUICK_ACTIONS.sectionView(button.dataset.quickView);
+    if (!view) return;
+    activeTab = view; issueFilter = 'all'; render();
+  }));
 }
 
 function viewOverview() {
@@ -405,6 +446,55 @@ function viewIssues() {
   return `<div class="filters" style="margin-bottom:12px">${chips}</div>${body}`;
 }
 
+const sectionHead = (title, detail) => `<div style="margin-bottom:14px"><h3 style="font-size:15px">${esc(title)}</h3><p class="tiny muted" style="margin-top:3px">${esc(detail)}</p></div>`;
+const compactStat = (label, value, klass) => `<div class="stat ${klass || ''}"><span class="label">${esc(label)}</span><span class="value">${esc(value)}</span></div>`;
+const compactStatus = (label, value, klass, detail) => `<div class="status"><div class="s-main"><b>${esc(label)}</b>${detail ? `<span>${esc(detail)}</span>` : ''}</div><div class="s-act"><span class="pill ${klass || 'info'}">${esc(value)}</span></div></div>`;
+
+function viewHeadings() {
+  const stats = DATA.headingStats;
+  return `${sectionHead('Heading structure', 'The page outline in DOM order. Select a heading to locate it on the audited page.')}
+    <div class="stats-4">${compactStat('Headings', stats.total)}${compactStat('H1', stats.h1, stats.h1 === 1 ? 'pass' : 'crit')}${compactStat('Level skips', stats.skips.length, stats.skips.length ? 'warn' : 'pass')}${compactStat('Questions', stats.questions)}</div>
+    <div class="card outline">${DATA.headings.length ? DATA.headings.map(heading => `<button class="hrow" data-locate="${heading.index}" style="padding-left:${11 + (heading.level - 1) * 14}px"><span class="lvl l${heading.level}">H${heading.level}</span><span class="htext">${heading.empty ? '<em class="muted">(empty heading)</em>' : esc(clip(heading.text, 104))}</span><span class="locate">Locate ›</span></button>`).join('') : '<div class="empty"><b>No headings found</b><p>This page has no heading elements to inspect.</p></div>'}</div>`;
+}
+
+function viewLinks() {
+  const stats = DATA.linkStats;
+  return `${sectionHead('Links', 'Real internal and external links found in the audited document.')}
+    <div class="stats-4">${compactStat('Total', stats.total)}${compactStat('Internal', stats.internal, stats.internal ? 'pass' : 'crit')}${compactStat('External', stats.external)}${compactStat('Generic text', stats.generic, stats.generic ? 'warn' : 'pass')}</div>
+    <div class="card">${compactStatus('Empty anchor text', String(stats.emptyAnchors), stats.emptyAnchors ? 'warn' : 'ok', 'Links without readable anchor text')}${compactStatus('External domains', String(stats.externalDomains), 'info', 'Distinct linked domains')}${compactStatus('Nofollow links', String(stats.nofollow), 'info', 'Marked for crawler handling')}</div>`;
+}
+
+function viewImages() {
+  const stats = DATA.imageStats;
+  return `${sectionHead('Images', 'Image accessibility and delivery signals from this page.')}
+    <div class="stats-4">${compactStat('Images', stats.total)}${compactStat('ALT coverage', stats.altCoverage + '%', stats.altCoverage === 100 ? 'pass' : 'warn')}${compactStat('Missing ALT', stats.altMissing, stats.altMissing ? 'crit' : 'pass')}${compactStat('Broken', stats.broken, stats.broken ? 'crit' : 'pass')}</div>
+    <div class="card">${compactStatus('Missing dimensions', String(stats.missingDimensions), stats.missingDimensions ? 'warn' : 'ok', 'Can contribute to layout shift')}${compactStatus('Lazy loaded', String(stats.lazy), 'info', 'Images marked for deferred loading')}${compactStatus('Next-generation formats', String(stats.nextGen), stats.nextGen ? 'ok' : 'info', 'WebP or AVIF image assets')}</div>`;
+}
+
+function viewSchema() {
+  const schema = DATA.schema;
+  const detected = schema.types.length ? schema.types.join(', ') : 'No schema types detected';
+  return `${sectionHead('Structured data', 'Machine-readable structured data found on this page.')}
+    <div class="stats-4">${compactStat('JSON-LD blocks', schema.jsonLdBlocks)}${compactStat('Invalid blocks', schema.invalidBlocks, schema.invalidBlocks ? 'crit' : 'pass')}${compactStat('Types', schema.types.length)}${compactStat('Microdata', schema.microdataTypes.length)}</div>
+    <div class="card">${compactStatus('Detected types', schema.types.length ? String(schema.types.length) : 'None', schema.types.length ? 'ok' : 'info', detected)}${schema.blocks.map((block, index) => compactStatus('Block ' + (index + 1), block.valid ? 'Valid JSON' : 'Invalid JSON', block.valid ? 'ok' : 'fail', block.types?.join(', ') || 'No @type')).join('')}</div>`;
+}
+
+function viewPerformance() {
+  const live = DATA.live;
+  const metric = (label, value, detail) => compactStatus(label, value === null || value === undefined ? 'Unavailable' : String(value), value === null || value === undefined ? 'info' : 'ok', detail);
+  return `${sectionHead('Performance', 'Live browser measurements captured during this audit. Lab and field data appear only after a PageSpeed check.')}
+    <div class="stats-4">${compactStat('TTFB', DATA.page.ttfbMs === null ? '—' : DATA.page.ttfbMs + ' ms', DATA.page.ttfbMs !== null && DATA.page.ttfbMs <= 800 ? 'pass' : 'warn')}${compactStat('Resources', DATA.perf.resourceCount)}${compactStat('DOM nodes', DATA.page.domNodes)}${compactStat('Long tasks', DATA.perf.longTasks === null ? '—' : DATA.perf.longTasks)}</div>
+    <div class="card">${metric('LCP', live?.lcp?.value === null || live?.lcp?.value === undefined ? null : live.lcp.value + ' ms', 'Measured in this browser session')}${metric('CLS', live?.cls?.value, 'Measured in this browser session')}${metric('INP', live?.inp?.value === null || live?.inp?.value === undefined ? null : live.inp.value + ' ms', 'Measured in this browser session')}</div>`;
+}
+
+function viewGeo() {
+  const geoScore = AUDIT.scores.geo;
+  const content = DATA.content;
+  return `${sectionHead('GEO / AEO', 'Real signals that help AI systems and answer engines understand the page.')}
+    <div class="stats-4">${compactStat('AI readiness', geoScore === null ? '—' : geoScore, geoScore !== null && geoScore >= 70 ? 'pass' : 'note')}${compactStat('Question headings', DATA.headingStats.questions)}${compactStat('Lists', content.lists)}${compactStat('Tables', content.tables)}</div>
+    <div class="card">${compactStatus('AI crawler records', String(DATA.robots.bots.length), DATA.robots.bots.some(bot => bot.allowed) ? 'ok' : 'info', 'Parsed from robots.txt')}${compactStatus('llms.txt files', String(DATA.llms.filter(file => file.state === 'FOUND').length), 'info', 'Optional AI discovery convention')}${compactStatus('Outbound citations', String(DATA.linkStats.external), DATA.linkStats.external ? 'ok' : 'info', 'External links found on this page')}</div>`;
+}
+
 function viewActions() {
   const origin = DATA.page.origin;
   const sitemap = DATA.sitemaps.find(s => s.ok && s.valid);
@@ -422,7 +512,6 @@ function viewActions() {
     <div class="card-body">
       <div class="action-grid">
         ${act('overlay', 'H', overlayOn ? 'Hide heading overlay' : 'Highlight H1–H6', overlayOn ? 'Remove the tags from the page' : 'Tag every heading on the live page')}
-        ${act('source', '&lt;&gt;', 'View HTML source', 'The HTML the server actually sent')}
         ${act('robots', 'R', 'Open robots.txt', DATA.robots.fetched ? 'Found on this site' : 'Not reachable', !DATA.robots.fetched)}
         ${act('sitemap', 'S', 'Open sitemap', sitemap ? `${sitemap.urlCount} URLs` : 'Not reachable', !sitemap)}
         ${act('llms', 'A', 'Open llms.txt', llms ? 'Found on this site' : 'Not published', !llms)}
@@ -440,8 +529,7 @@ function viewActions() {
         ${act('csvIssues', '↓', 'Export issues CSV', `${AUDIT.issues.length + AUDIT.passed.length} rows`)}
         ${act('saveAudit', '⇧', 'Save to AuditFlux', 'Persist this real audit to your workspace')}
         ${act('openSaasAudit', '⤢', 'Open SaaS report', 'Save, then open the full AuditFlux report')}
-        ${act('dashboard', '▣', 'Open extension report', 'Local extension view for this scan')}
-        ${act('performance', '⚡', 'Run PageSpeed', 'Lighthouse scores and Core Web Vitals')}
+        ${act('performance', '⚡', 'Performance details', 'Live browser metrics from this audit')}
         ${act('pricing', '★', 'Plans and usage', PLAN ? esc(PLAN.name) + ' plan' : 'Free plan')}
       </div>
     </div>
@@ -490,6 +578,10 @@ function bindPanel() {
     issueFilter = el.dataset.cat; activeTab = 'issues'; render();
   }));
 
+  document.querySelectorAll('[data-locate]').forEach(el => el.addEventListener('click', () => {
+    locateHeading(Number(el.dataset.locate));
+  }));
+
   document.querySelectorAll('[data-action]').forEach(el => el.addEventListener('click', () => {
     const a = el.dataset.action;
     const origin = DATA.page.origin;
@@ -500,11 +592,9 @@ function bindPanel() {
     if (a === 'sitemap') return open(DATA.sitemaps.find(s => s.ok && s.valid).url);
     if (a === 'llms') return open(origin + DATA.llms.find(f => f.state === 'FOUND').file);
     if (a === 'canonical') return open(DATA.head.canonical);
-    if (a === 'source') return openDashboard('source');
-    if (a === 'dashboard') return openDashboard();
     if (a === 'saveAudit') return saveAuditToAuditFlux(false);
     if (a === 'openSaasAudit') return saveAuditToAuditFlux(true);
-    if (a === 'performance') return openDashboard('performance');
+    if (a === 'performance') { activeTab = 'performance'; return render(); }
     if (a === 'pricing') return chrome.tabs.create({ url: chrome.runtime.getURL('pricing.html') });
     if (a === 'copyUrl') return copyText(DATA.page.url, 'Page URL copied');
     if (a === 'copyReport') return copyText(SCC_TEXT_REPORT(DATA, AUDIT, SCC_CATEGORIES), 'Report copied to clipboard');
@@ -534,7 +624,7 @@ document.querySelectorAll('.tab').forEach(t =>
 $('#rescanBtn').addEventListener('click', run);
 $('#errorRetry').addEventListener('click', run);
 $('#overlayBtn').addEventListener('click', () => toggleOverlay().then(() => { if (activeTab === 'actions') render(); }));
-$('#dashboardBtn').addEventListener('click', () => openDashboard());
+$('#dashboardBtn').addEventListener('click', () => saveAuditToAuditFlux(true));
 const planBadgeEl = $('#planBadge');
 if (planBadgeEl) planBadgeEl.addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('pricing.html') }));
 

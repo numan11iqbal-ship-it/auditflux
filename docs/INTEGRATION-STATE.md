@@ -67,3 +67,9 @@ The latest user-attached **white-wordmark** logo replacement was released in dep
 The user-attached raster logo is deployed in the existing Vercel build. The larger optional decorative textures remain deliberately un-deployed because they are not needed for the responsive workspace and would add unnecessary production payload.
 
 The top-left workspace branding was further refined in deployment `dpl_3kPjoyuKMUji37h61E2drzUA8PDp` for commit `91eb669`, which reached `READY`. The duplicate top-bar logo and all logo backdrop styling were removed. The one remaining white-wordmark logo is enlarged and aligned at the upper-left of the sidebar; live authenticated validation confirmed the persisted audit overview remained intact.
+
+## Extension quick-action command bar
+
+Extension release `5.3.0` adds a compact command bar to the popup header. The controls route within the existing popup state to **Issues**, **Headings**, **Links**, **Images**, **Schema**, **Performance**, and **GEO / AEO**; they do not open placeholder routes or separate report pages. Each displayed count is derived from the active audit object and omitted when that measurement is unavailable. The command bar collapses into a priority-preserving **More** menu at narrower widths, while the existing plan badge and **Re-scan** remain in the header.
+
+The popup's **Full report** control now saves the current real audit through the established authenticated API path and opens the canonical AuditFlux SaaS report by audit ID. The legacy extension full-page report is no longer linked from the popup command path. Focused real-data mapping tests, extension bridge tests, backend tests, dashboard tests, type checks, and production build all passed before packaging.

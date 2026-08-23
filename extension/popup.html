@@ -17,11 +17,12 @@
       <span id="pageHost">Analyzing…</span>
     </div>
   </div>
+  <nav class="quick-command hidden" id="quickCommand" aria-label="Audit sections"></nav>
   <div class="appbar-actions">
     <button class="btn btn-dark btn-sm" id="planBadge" title="View plans">FREE</button>
     <button class="btn btn-dark btn-sm" id="overlayBtn" aria-pressed="false" title="Tag every heading on the page">H1–H6</button>
     <button class="btn btn-dark btn-sm" id="rescanBtn" title="Run the audit again">Re-scan</button>
-    <button class="btn btn-primary btn-sm" id="dashboardBtn">Full report</button>
+    <button class="btn btn-primary btn-sm" id="dashboardBtn" title="Save this audit and open it in the main AuditFlux web app">Full report</button>
   </div>
 </header>
 
@@ -44,7 +45,7 @@
   <nav class="tabs" id="tabs" role="tablist">
     <button class="tab active" data-tab="overview" role="tab" aria-selected="true">Overview</button>
     <button class="tab" data-tab="issues" role="tab" aria-selected="false">Issues <em id="tabIssueCount"></em></button>
-    <button class="tab" data-tab="actions" role="tab" aria-selected="false">Quick actions</button>
+    <button class="tab" data-tab="actions" role="tab" aria-selected="false">Tools</button>
   </nav>
   <div class="panel" id="panel" role="tabpanel"></div>
 </main>
@@ -62,6 +63,7 @@
 <script src="engine/rules.js"></script>
 <script src="engine/report.js"></script>
 <script src="content/overlay.js"></script>
+<script src="quick-actions.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>
