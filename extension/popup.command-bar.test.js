@@ -17,6 +17,13 @@ test('top-bar Web App action opens the canonical AuditFlux web application indep
   assert.match(popup, /chrome\.tabs\.create\(\{ url: 'https:\/\/auditflux\.vercel\.app\/' \}\)/);
 });
 
+test('visible popup controls use the approved Title Case labels', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'popup.html'), 'utf8');
+  for (const label of ['Free', 'H1–H6', 'Web App', 'Re-Scan', 'Full Report', 'Try Again']) {
+    assert.match(html, new RegExp(`>${label}<`));
+  }
+});
+
 test('quick actions use the section routing contract and render active-state buttons', () => {
   assert.match(popup, /AUDITFLUX_QUICK_ACTIONS\.commandItems\(DATA, AUDIT\)/);
   assert.match(popup, /function isQuickActionActive\(item\) \{/);

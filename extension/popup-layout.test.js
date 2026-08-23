@@ -8,8 +8,8 @@ const path = require('node:path');
 const css = fs.readFileSync(path.join(__dirname, 'popup.css'), 'utf8');
 const html = fs.readFileSync(path.join(__dirname, 'popup.html'), 'utf8');
 
-test('Chrome action popup keeps an intrinsic compact width instead of collapsing against the initial viewport', () => {
-  assert.match(css, /:root\{--popup-width:760px;--popup-max:760px\}/);
+test('Chrome action popup keeps a wide intrinsic width instead of collapsing against the initial viewport', () => {
+  assert.match(css, /:root\{--popup-width:800px;--popup-max:800px\}/);
   assert.match(css, /html\{width:var\(--popup-width\);overflow-x:hidden\}/);
   assert.match(css, /body\{\s*width:var\(--popup-width\);min-width:var\(--popup-width\);max-width:var\(--popup-width\);height:600px;/);
   assert.doesNotMatch(css, /max-width:100vw/);
@@ -18,8 +18,9 @@ test('Chrome action popup keeps an intrinsic compact width instead of collapsing
   assert.match(css, /@media \(min-width:560px\)\{[\s\S]*\.stats-4\{grid-template-columns:repeat\(4,minmax\(0,1fr\)\)\}/);
 });
 
-test('popup uses visible full-width section tabs and local table scrolling rather than a root scrollbar', () => {
-  assert.match(css, /\.quick-command\{\s*display:grid;grid-template-columns:repeat\(10,minmax\(0,1fr\)\);/);
+test('popup uses readable two-row visible section tabs and local table scrolling rather than a root scrollbar', () => {
+  assert.match(css, /\.quick-command\{\s*display:grid;grid-template-columns:repeat\(5,minmax\(0,1fr\)\);/);
+  assert.match(css, /\.quick-action:nth-child\(5n\)\{border-right:0\}/);
   assert.doesNotMatch(css, /\.quick-more/);
   assert.match(css, /\.table-wrap\{width:100%;max-width:100%;overflow-x:auto;/);
   assert.match(css, /\.overlay-toggle\[aria-pressed="true"\]/);
