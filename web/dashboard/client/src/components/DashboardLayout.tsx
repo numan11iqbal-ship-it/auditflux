@@ -22,7 +22,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     const path = selectedAuditId ? auditPath(selectedAuditId, section) : `/${section}`;
     return <button key={section} onClick={() => { setLocation(path); setOpen(false); }} className={`af-nav-item ${activeAuditSection === section ? 'is-active' : ''}`}><Icon size={17} strokeWidth={2} /><span>{label}</span></button>;
   };
-  const workspaceItem = (label: string, path: string, Icon: typeof CircleGauge) => <button key={path} onClick={() => { setLocation(path); setOpen(false); }} className={`af-nav-item ${location === path ? 'is-active' : ''}`}><Icon size={17} strokeWidth={2} /><span>{label}</span></button>;
+  const workspaceItem = (label: string, path: string, Icon: typeof CircleGauge) => {
+    const destination = path === '/reports' && selectedAuditId ? auditPath(selectedAuditId, 'reports') : path;
+    return <button key={path} onClick={() => { setLocation(destination); setOpen(false); }} className={`af-nav-item ${routeSection(location) === 'reports' && label === 'Reports' || location === path ? 'is-active' : ''}`}><Icon size={17} strokeWidth={2} /><span>{label}</span></button>;
+  };
 
   return <div className="af-app-shell"><button className="af-mobile-menu" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={20} /></button>{open && <button aria-label="Close navigation" className="af-nav-backdrop" onClick={() => setOpen(false)} />}
     <aside className={`af-sidebar ${open ? 'is-open' : ''}`}>
