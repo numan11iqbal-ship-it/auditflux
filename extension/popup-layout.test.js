@@ -18,10 +18,12 @@ test('Chrome action popup keeps an intrinsic compact width instead of collapsing
   assert.match(css, /@media \(min-width:560px\)\{[\s\S]*\.stats-4\{grid-template-columns:repeat\(4,minmax\(0,1fr\)\)\}/);
 });
 
-test('popup uses compact action priorities and local table scrolling rather than a root scrollbar', () => {
-  assert.match(css, /\.quick-command\{\s*display:flex;flex-wrap:wrap;/);
+test('popup uses visible full-width section tabs and local table scrolling rather than a root scrollbar', () => {
+  assert.match(css, /\.quick-command\{\s*display:grid;grid-template-columns:repeat\(10,minmax\(0,1fr\)\);/);
+  assert.doesNotMatch(css, /\.quick-more/);
   assert.match(css, /\.table-wrap\{width:100%;max-width:100%;overflow-x:auto;/);
-  assert.match(css, /@media \(max-width:380px\)/);
+  assert.match(css, /\.overlay-toggle\[aria-pressed="true"\]/);
   assert.match(html, /<nav class="quick-command hidden" id="quickCommand"/);
+  assert.match(html, /id="overlayBtn" aria-pressed="true"/);
   assert.match(html, /class="radar-loader"/);
 });

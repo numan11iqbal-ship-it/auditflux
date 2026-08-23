@@ -147,7 +147,7 @@ async function run() {
       console.warn('Could not cache audit for the dashboard:', e);
     }
 
-    // Reflect the overlay's real state rather than assuming it is off.
+    // Reflect the overlay's real state, then enable the requested default-on heading labels.
     try {
       const state = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -155,6 +155,7 @@ async function run() {
       });
       overlayOn = !!state?.[0]?.result;
     } catch {}
+    await enableHeadingOverlayOnOpen();
     syncOverlayButton();
 
     showState('results');
@@ -259,6 +260,20 @@ async function locateHeading(index) {
   }
 }
 
+async function enableHeadingOverlayOnOpen() {
+  if (!TAB || overlayOn) return;
+  try {
+    const res = await chrome.scripting.executeScript({
+      target: { tabId: TAB.id },
+      func: SCC_TOGGLE_HEADING_OVERLAY
+    });
+    const out = res?.[0]?.result;
+    if (out?.enabled) overlayOn = true;
+  } catch {
+    // Auditing still succeeds when a site prevents cosmetic page overlay injection.
+  }
+}
+
 /* --------------------------- rendering --------------------------- */
 
 const scoreClass = (v) => v === null ? '' : v >= 80 ? 'good' : v >= 50 ? 'mid' : 'bad';
@@ -296,7 +311,7 @@ function renderQuickCommand() {
   const chip = (item) => `<button class="quick-action ${isQuickActionActive(item) ? 'is-active' : ''}" data-view="${item.id}" data-filter="${item.filter || ''}" data-priority="${item.priority}" title="${esc(item.title)}" aria-pressed="${isQuickActionActive(item)}">
     <span class="qa-icon" aria-hidden="true">${esc(item.icon)}</span><span class="qa-label">${esc(item.label)}</span><span class="qa-short">${esc(item.shortLabel)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`;
   command.classList.remove('hidden');
-  command.innerHTML = `${actions.map(chip).join('')}<div class="quick-more-wrap"><button class="quick-more" id="quickMore" aria-expanded="false">More ▾</button><div class="quick-more-menu hidden" id="quickMoreMenu"></div></div>`;
+  command.innerHTML = actions.map(chip).join('');
   command.querySelectorAll('.quick-action').forEach(button => button.addEventListener('click', () => {
     const filter = button.dataset.filter;
     const view = AUDITFLUX_QUICK_ACTIONS.sectionView(button.dataset.view);
@@ -304,34 +319,10 @@ function renderQuickCommand() {
     if (!view) return;
     activeTab = view; issueFilter = 'all'; render();
   }));
-  const more = $('#quickMore');
-  if (more) more.addEventListener('click', () => {
-    const menu = $('#quickMoreMenu'); const isHidden = menu.classList.toggle('hidden');
-    more.setAttribute('aria-expanded', String(!isHidden));
-  });
-  requestAnimationFrame(() => syncQuickOverflow(actions));
 }
 
 function isQuickActionActive(item) {
   return activeTab === item.id || (item.filter && activeTab === 'issues' && issueFilter === item.filter);
-}
-
-function syncQuickOverflow(actions) {
-  const menu = $('#quickMoreMenu'); const wrap = document.querySelector('.quick-more-wrap');
-  if (!menu || !wrap) return;
-  const hidden = actions.filter(item => {
-    const button = document.querySelector(`.quick-action[data-view="${item.id}"]`);
-    return !button || getComputedStyle(button).display === 'none';
-  });
-  wrap.classList.remove('hidden');
-  menu.innerHTML = hidden.map(item => `<button class="quick-more-item ${isQuickActionActive(item) ? 'is-active' : ''}" data-quick-view="${item.id}" data-quick-filter="${item.filter || ''}"><span>${esc(item.label)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`).join('');
-  menu.querySelectorAll('[data-quick-view]').forEach(button => button.addEventListener('click', () => {
-    const filter = button.dataset.quickFilter;
-    const view = AUDITFLUX_QUICK_ACTIONS.sectionView(button.dataset.quickView);
-    if (filter) { activeTab = 'issues'; issueFilter = filter; return render(); }
-    if (!view) return;
-    activeTab = view; issueFilter = 'all'; render();
-  }));
 }
 
 function viewOverview() {

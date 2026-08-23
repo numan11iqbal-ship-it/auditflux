@@ -16,9 +16,16 @@ test('quick actions use the section routing contract and render active-state but
   assert.match(popup, /AUDITFLUX_QUICK_ACTIONS\.commandItems\(DATA, AUDIT\)/);
   assert.match(popup, /function isQuickActionActive\(item\) \{/);
   assert.match(popup, /quick-action \$\{isQuickActionActive\(item\) \? 'is-active' : ''\}/);
-  assert.match(popup, /quick-more-item \$\{isQuickActionActive\(item\) \? 'is-active' : ''\}/);
   assert.match(popup, /views = \{[\s\S]*headings: viewHeadings[\s\S]*resources: viewResources/);
   assert.match(popup, /if \(filter\) \{ activeTab = 'issues'; issueFilter = filter; return render\(\); \}/);
+  assert.doesNotMatch(popup, /quickMore|syncQuickOverflow/);
+});
+
+test('heading overlay is enabled by default after a successful audit and remains toggleable from the header', () => {
+  assert.match(popup, /await enableHeadingOverlayOnOpen\(\);/);
+  assert.match(popup, /async function enableHeadingOverlayOnOpen\(\) \{/);
+  assert.match(popup, /if \(!TAB \|\| overlayOn\) return;/);
+  assert.match(popup, /const overlayButton = \$\('#overlayBtn'\);/);
 });
 
 test('popup startup safely tolerates the removed compact-header overlay control', () => {
