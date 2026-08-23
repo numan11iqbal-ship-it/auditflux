@@ -640,7 +640,8 @@ document.querySelectorAll('.tab').forEach(t =>
 
 $('#rescanBtn').addEventListener('click', run);
 $('#errorRetry').addEventListener('click', run);
-$('#overlayBtn').addEventListener('click', () => toggleOverlay().then(() => { if (activeTab === 'actions') render(); }));
+const overlayButton = $('#overlayBtn');
+if (overlayButton) overlayButton.addEventListener('click', () => toggleOverlay().then(() => { if (activeTab === 'actions') render(); }));
 $('#dashboardBtn').addEventListener('click', () => saveAuditToAuditFlux(true));
 const planBadgeEl = $('#planBadge');
 if (planBadgeEl) planBadgeEl.addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('pricing.html') }));

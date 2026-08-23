@@ -20,3 +20,9 @@ test('quick actions use the section routing contract and render active-state but
   assert.match(popup, /views = \{[\s\S]*headings: viewHeadings[\s\S]*resources: viewResources/);
   assert.match(popup, /if \(filter\) \{ activeTab = 'issues'; issueFilter = filter; return render\(\); \}/);
 });
+
+test('popup startup safely tolerates the removed compact-header overlay control', () => {
+  assert.match(popup, /const overlayButton = \$\('#overlayBtn'\);/);
+  assert.match(popup, /if \(overlayButton\) overlayButton\.addEventListener\('click'/);
+  assert.doesNotMatch(popup, /\$\('#overlayBtn'\)\.addEventListener/);
+});
