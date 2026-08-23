@@ -28,6 +28,8 @@ test('full report saves and opens the exact current audit Reports route instead 
   assert.match(popup, /source: 'extension'/);
   assert.match(popup, /chrome\.runtime\.sendMessage\(\{ type: 'auditflux:audit-saved', handoff \}\)/);
   assert.match(popup, /auditFluxWebAppUrl\('\/connect-extension'\)/);
+  assert.match(popup, /async function automaticallyPersistCurrentAudit\(\)/);
+  assert.match(popup, /void automaticallyPersistCurrentAudit\(\);/);
 });
 
 test('top-bar Web App action saves and opens the exact current audit Overview route without falling back to a previous workspace audit', () => {
@@ -35,8 +37,9 @@ test('top-bar Web App action saves and opens the exact current audit Overview ro
   assert.match(popup, /const webAppButton = \$\('#webAppBtn'\);/);
   assert.match(popup, /async function openWebAppForCurrentAudit\(\) \{/);
   assert.match(webAppFunction, /chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/'\), active: true \}\)/);
-  assert.match(webAppFunction, /saveAuditToAuditFlux\(true, tab\?\.id, 'overview'\)/);
+  assert.match(popup, /saveAuditToAuditFlux\(true, tab\?\.id, 'overview'\)/);
   assert.match(popup, /webAppButton\.addEventListener\('click', \(\) => void openWebAppForCurrentAudit\(\)\)/);
+  assert.doesNotMatch(popup, /'Save to AuditFlux'/);
 });
 
 test('visible popup controls use the approved Title Case labels', () => {

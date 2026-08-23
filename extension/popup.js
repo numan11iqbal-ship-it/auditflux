@@ -154,6 +154,12 @@ async function openWebAppForCurrentAudit() {
   await saveAuditToAuditFlux(true, tab?.id, 'overview');
 }
 
+async function automaticallyPersistCurrentAudit() {
+  const connection = await auditFluxConnection();
+  if (!connection?.apiBase || (!connection?.accessToken && !connection?.sessionToken)) return;
+  await saveAuditToAuditFlux(false);
+}
+
 function showState(which) {
   $('#loadingState').classList.toggle('hidden', which !== 'loading');
   $('#errorState').classList.toggle('hidden', which !== 'error');
@@ -235,6 +241,7 @@ async function run() {
 
     showState('results');
     render();
+    void automaticallyPersistCurrentAudit();
   } catch (e) {
     showError('Couldn\'t read this page', e?.message || 'The page blocked the audit script. Reload and try again.');
   }
@@ -610,8 +617,7 @@ function viewActions() {
         ${act('copyReport', '¶', 'Copy report', 'Plain text, ready to send to a client')}
         ${act('copyUrl', 'U', 'Copy page URL', 'The current address')}
         ${act('csvIssues', '↓', 'Export issues CSV', `${AUDIT.issues.length + AUDIT.passed.length} rows`)}
-        ${act('saveAudit', '⇧', 'Save to AuditFlux', 'Persist this real audit to your workspace')}
-        ${act('openSaasAudit', '⤢', 'Open SaaS report', 'Save, then open the full AuditFlux report')}
+        ${act('openSaasAudit', '⤢', 'Open Full Report', 'Open this automatically saved audit in AuditFlux')}
         ${act('performance', '⚡', 'Performance details', 'Live browser metrics from this audit')}
         ${act('pricing', '★', 'Plans and usage', PLAN ? esc(PLAN.name) + ' plan' : 'Free plan')}
       </div>
@@ -675,7 +681,6 @@ function bindPanel() {
     if (a === 'sitemap') return open(DATA.sitemaps.find(s => s.ok && s.valid).url);
     if (a === 'llms') return open(origin + DATA.llms.find(f => f.state === 'FOUND').file);
     if (a === 'canonical') return open(DATA.head.canonical);
-    if (a === 'saveAudit') return saveAuditToAuditFlux(false);
     if (a === 'openSaasAudit') return saveAuditToAuditFlux(true);
     if (a === 'performance') { activeTab = 'performance'; return render(); }
     if (a === 'pricing') return chrome.tabs.create({ url: chrome.runtime.getURL('pricing.html') });

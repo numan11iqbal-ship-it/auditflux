@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "AuditFlux SEO",
   "short_name": "AuditFlux SEO",
-  "version": "5.6.0",
+  "version": "5.6.1",
   "description": "Audit any page for technical SEO, on-page, headings, links, images, schema, performance, accessibility and AI/GEO readiness.",
   "permissions": [
     "activeTab",
