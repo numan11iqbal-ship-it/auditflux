@@ -44,8 +44,22 @@ The user-authenticated production flow was verified with the installed AuditFlux
 | Issue location | A saved accessibility issue returned the explicit result **Located and highlighted in the audited tab**, which is emitted only after the extension confirms that its locator executed successfully. |
 | Wide dashboard layout | `DashboardLayout.tsx` uses a full-width main container (`w-full min-w-0`) and responsive horizontal padding with no maximum-width constraint. The full production Issues view was exercised at desktop width. |
 
-The dark navy/slate theme with the neon-green AuditFlux accent is active in production. The dashboard logo remains the built-in `AF` badge and AuditFlux wordmark; a custom logo asset is not yet wired into this dashboard component.
+The dark navy/slate theme with the neon-green AuditFlux accent was the prior production visual layer. It has been superseded by the approved blue/black AuditFlux workspace visual refresh described below.
 
 ## Deployment release status
 
 The GitHub author identity was repaired through forward-only commits using `282272617+numan11iqbal-ship-it@users.noreply.github.com`. The latest validation-related production release was deployment `dpl_AhLSqy2oNXXE89qpq9mzUwwfVtpR` for commit `51d7d10`, which reached `READY` and emitted the verified non-secret audit persistence event. The canonical dashboard loads with Supabase Auth, its dedicated Supabase server configuration, PageSpeed/CrUX server configuration, and the installed extension bridge. No new Vercel project was created.
+
+## Visual-only production refresh
+
+The user-supplied workspace source was treated solely as a visual reference. Its mock data, simulated actions, Manus asset paths, and standalone application state were not copied into AuditFlux. The existing authenticated API client, Supabase session context, extension bridge, locator messaging, persisted reports, projects, and history routes remain the production implementation.
+
+| Area | Applied result |
+|---|---|
+| Branding | `BrandMark.tsx` renders the user-attached AuditFlux logo from `/brand/auditflux-logo.webp`. The source image was deterministically optimized to a 1024×353, 144 KB WebP asset and is packaged in the existing Vercel build; no Manus-hosted production URL is used. |
+| Design system | `index.css` now supplies the approved blue/black palette, Manrope-forward typography, instrument-panel cards, responsive navigation, and full-width workspace composition. There is no `max-width` cap on the dashboard main content. |
+| Overview | The hero, metric cards, recent-audit table, and prioritized issue queue derive only from the authenticated saved audit, performance rows, and history responses. Missing data renders as an explicit unavailable state rather than a fabricated value. |
+| Tests | Focused tests cover the pure persisted-data overview mapping and priority ordering. The full dashboard suite, TypeScript check, production build, shared contract/API/extension/routing tests, and prohibited Manus URL scan all passed before release. |
+| Live verification | Production deployment `dpl_JUvh2kM9A5vH3wgQK47F9V3iQBCF` for commit `98f7eee` reached `READY`. An authenticated production session displayed real Behance and ThemeForest audit history, real scores and issues, and the **Extension connected** state after the visual refresh. |
+
+The user-attached raster logo is deployed in the existing Vercel build. The larger optional decorative textures remain deliberately un-deployed because they are not needed for the responsive workspace and would add unnecessary production payload.

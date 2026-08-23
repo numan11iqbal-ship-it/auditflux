@@ -65,7 +65,8 @@ button:focus-visible { outline: 2px solid var(--af-blue-bright); outline-offset:
 
 .af-app-shell { min-height: 100vh; background: radial-gradient(circle at 85% -5%, rgba(8, 106, 244, .11), transparent 29rem), var(--background); }
 .af-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 40; display: flex; width: 264px; flex-direction: column; background: rgba(8, 17, 26, .98); border-right: 1px solid var(--af-line); }
-.af-brand { display: flex; height: 88px; align-items: center; gap: 11px; padding: 14px 20px; border-bottom: 1px solid var(--af-soft-line); }
+.af-brand { display: flex; height: 88px; align-items: center; padding: 13px 18px; border-bottom: 1px solid var(--af-soft-line); }
+.af-brand-logo { display: block; width: 214px; height: auto; max-height: 62px; object-fit: contain; object-position: left center; }
 .af-brand strong, .af-topbar-brand strong { display: block; color: #f5f8fc; font-size: 20px; font-weight: 900; letter-spacing: -.06em; line-height: 1; }
 .af-brand strong span, .af-topbar-brand strong span { color: var(--af-blue-bright); }
 .af-brand em, .af-topbar-brand em { display: block; margin-top: 6px; color: #9aabbb; font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: .025em; }
@@ -88,7 +89,8 @@ button:focus-visible { outline: 2px solid var(--af-blue-bright); outline-offset:
 .af-signout:hover { background: rgba(112, 150, 187, .09); color: #fff; }
 .af-shell-main { min-height: 100vh; margin-left: 264px; }
 .af-topbar { position: sticky; top: 0; z-index: 30; display: flex; height: 76px; align-items: center; justify-content: space-between; padding: 0 34px; background: rgba(8, 16, 25, .92); border-bottom: 1px solid var(--af-line); backdrop-filter: blur(18px); }
-.af-topbar-brand { display: flex; align-items: center; gap: 10px; }
+.af-topbar-brand { display: flex; align-items: center; }
+.af-topbar-logo { display: block; width: 144px; height: auto; max-height: 47px; object-fit: contain; object-position: left center; }
 .af-topbar-brand strong { font-size: 18px; }
 .af-topbar-status { display: inline-flex; align-items: center; gap: 7px; color: #9bb3ca; font-size: 11px; font-weight: 700; }
 .af-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--af-green); box-shadow: 0 0 0 4px rgba(57, 201, 121, .12); }
