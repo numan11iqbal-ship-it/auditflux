@@ -30,6 +30,7 @@ function Router() {
       <Route path="/history" component={Home} />
       <Route path="/performance" component={Home} />
       <Route path="/settings" component={Home} />
+      <Route path="/connect-extension" component={Home} />
       <Route path="/docs" component={Home} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

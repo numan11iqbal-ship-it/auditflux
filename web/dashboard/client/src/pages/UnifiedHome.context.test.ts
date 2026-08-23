@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const source = readFileSync(resolve(__dirname, 'UnifiedHome.tsx'), 'utf8');
+const appSource = readFileSync(resolve(__dirname, '..', 'App.tsx'), 'utf8');
 
 describe('context-free AuditFlux workspace landing', () => {
   it('loads a saved audit only when the route explicitly carries an audit ID', () => {
@@ -22,5 +23,9 @@ describe('context-free AuditFlux workspace landing', () => {
     expect(source).toContain("section === 'settings' || section === 'connect-extension'");
     expect(source).not.toContain('VITE_AUDITFLUX_EXTENSION_ID');
     expect(source).not.toContain('runtime.sendMessage');
+  });
+
+  it('registers the in-workspace connection URL instead of routing it to a separate dashboard or 404 state', () => {
+    expect(appSource).toContain('<Route path="/connect-extension" component={Home} />');
   });
 });
