@@ -14,6 +14,7 @@ test('full report saves then opens the canonical SaaS audit instead of the legac
 
 test('quick actions use the section routing contract and render active-state buttons', () => {
   assert.match(popup, /AUDITFLUX_QUICK_ACTIONS\.commandItems\(DATA, AUDIT\)/);
-  assert.match(popup, /quick-action \$\{activeTab === item\.id \? 'is-active' : ''\}/);
-  assert.match(popup, /views = \{[\s\S]*headings: viewHeadings[\s\S]*geo: viewGeo/);
+  assert.match(popup, /const active = \(item\) => activeTab === item\.id/);
+  assert.match(popup, /views = \{[\s\S]*headings: viewHeadings[\s\S]*resources: viewResources/);
+  assert.match(popup, /if \(filter\) \{ activeTab = 'issues'; issueFilter = filter; return render\(\); \}/);
 });

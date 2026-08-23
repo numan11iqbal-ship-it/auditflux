@@ -18,25 +18,27 @@
 
     return [
       { id: 'issues', label: 'Issues', shortLabel: 'Issues', icon: '!', count: issues, title: 'View all SEO issues', priority: 'core' },
-      { id: 'headings', label: 'Headings', shortLabel: 'H1–H6', icon: 'H', count: headings, title: 'Inspect H1–H6 structure', priority: 'core' },
+      { id: 'headings', label: 'H1–H6', shortLabel: 'H1–H6', icon: 'H', count: headings, title: 'Inspect heading structure', priority: 'core' },
       { id: 'links', label: 'Links', shortLabel: 'Links', icon: '↗', count: links, title: 'Analyze internal and external links', priority: 'core' },
-      { id: 'images', label: 'Images', shortLabel: 'Images', icon: '▧', count: images, title: 'Check images, ALT and optimization', priority: 'core optional' },
-      { id: 'schema', label: 'Schema', shortLabel: 'Schema', icon: '{ }', count: schema, title: 'Inspect structured data', priority: 'overflow' },
+      { id: 'images', label: 'Images', shortLabel: 'Images', icon: '▧', count: images, title: 'Check images, ALT and optimization', priority: 'optional' },
+      { id: 'schema', label: 'Schema', shortLabel: 'Schema', icon: '{ }', count: schema, title: 'Inspect structured data', priority: 'optional' },
       { id: 'performance', label: 'Performance', shortLabel: 'Performance', icon: '◌', count: performance, title: 'View performance metrics', priority: 'overflow' },
-      { id: 'geo', label: 'GEO / AEO', shortLabel: 'GEO', icon: '✦', count: geo, title: 'Analyze AI search readiness', priority: 'overflow' }
+      { id: 'geo', label: 'GEO / AEO', shortLabel: 'GEO', icon: '✦', count: geo, title: 'Analyze AI search readiness', priority: 'overflow' },
+      { id: 'accessibility', label: 'Accessibility', shortLabel: 'A11y', icon: 'A', count: null, title: 'Filter accessibility issues', priority: 'overflow', filter: 'accessibility' },
+      { id: 'technical', label: 'Technical', shortLabel: 'Technical', icon: 'T', count: null, title: 'Filter technical issues', priority: 'overflow', filter: 'technical' },
+      { id: 'resources', label: 'Resources', shortLabel: 'Resources', icon: 'R', count: numberOrNull(data?.resources?.length), title: 'Inspect page resources', priority: 'overflow' }
     ];
   }
 
   function sectionView(value) {
-    return ['issues', 'headings', 'links', 'images', 'schema', 'performance', 'geo'].includes(value) ? value : null;
+    return ['issues', 'headings', 'links', 'images', 'schema', 'performance', 'geo', 'resources'].includes(value) ? value : null;
   }
 
   function responsiveCommandModel(width) {
-    const all = ['issues', 'headings', 'links', 'images', 'schema', 'performance', 'geo'];
-    if (width > 1024) return { visible: all, overflow: [] };
-    if (width > 680) return { visible: ['issues', 'headings', 'links', 'images'], overflow: ['schema', 'performance', 'geo'] };
-    if (width > 520) return { visible: ['issues', 'headings', 'links'], overflow: ['images', 'schema', 'performance', 'geo'] };
-    return { visible: ['issues', 'headings'], overflow: ['links', 'images', 'schema', 'performance', 'geo'] };
+    const all = ['issues', 'headings', 'links', 'images', 'schema'];
+    if (width >= 560) return { visible: all, overflow: ['performance', 'geo', 'accessibility', 'technical', 'resources'] };
+    if (width >= 460) return { visible: ['issues', 'headings', 'links', 'images'], overflow: ['schema', 'performance', 'geo', 'accessibility', 'technical', 'resources'] };
+    return { visible: ['issues', 'headings', 'links'], overflow: ['images', 'schema', 'performance', 'geo', 'accessibility', 'technical', 'resources'] };
   }
 
   const api = { commandItems, numberOrNull, sectionView, responsiveCommandModel };

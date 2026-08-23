@@ -17,17 +17,17 @@
       <span id="pageHost">Analyzing…</span>
     </div>
   </div>
-  <nav class="quick-command hidden" id="quickCommand" aria-label="Audit sections"></nav>
   <div class="appbar-actions">
     <button class="btn btn-dark btn-sm" id="planBadge" title="View plans">FREE</button>
-    <button class="btn btn-dark btn-sm" id="overlayBtn" aria-pressed="false" title="Tag every heading on the page">H1–H6</button>
     <button class="btn btn-dark btn-sm" id="rescanBtn" title="Run the audit again">Re-scan</button>
     <button class="btn btn-primary btn-sm" id="dashboardBtn" title="Save this audit and open it in the main AuditFlux web app">Full report</button>
   </div>
 </header>
 
+<nav class="quick-command hidden" id="quickCommand" aria-label="Audit sections"></nav>
+
 <section id="loadingState" class="state">
-  <div class="spinner" role="status" aria-label="Analyzing page"></div>
+  <div class="radar-loader" role="status" aria-label="Analyzing page"><img src="icons/icon-48.png" alt=""></div>
   <h2>Analyzing this page</h2>
   <p>Reading the page, response headers, robots.txt and sitemaps.</p>
 </section>

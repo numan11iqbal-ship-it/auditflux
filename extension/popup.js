@@ -220,6 +220,7 @@ function usageStrip() {
 
 function syncOverlayButton() {
   const btn = $('#overlayBtn');
+  if (!btn) return;
   btn.setAttribute('aria-pressed', String(overlayOn));
   btn.textContent = overlayOn ? 'Hide H1–H6' : 'H1–H6';
 }
@@ -281,7 +282,7 @@ function render() {
   renderQuickCommand();
   const views = {
     overview: viewOverview, issues: viewIssues, headings: viewHeadings, links: viewLinks,
-    images: viewImages, schema: viewSchema, performance: viewPerformance, geo: viewGeo, actions: viewActions
+    images: viewImages, schema: viewSchema, performance: viewPerformance, geo: viewGeo, resources: viewResources, actions: viewActions
   };
   $('#panel').innerHTML = views[activeTab]();
   $('#panel').scrollTop = 0;
@@ -292,12 +293,15 @@ function renderQuickCommand() {
   const command = $('#quickCommand');
   if (!command || !DATA || !AUDIT || !window.AUDITFLUX_QUICK_ACTIONS) return;
   const actions = AUDITFLUX_QUICK_ACTIONS.commandItems(DATA, AUDIT);
-  const chip = (item) => `<button class="quick-action ${activeTab === item.id ? 'is-active' : ''}" data-view="${item.id}" data-priority="${item.priority}" title="${esc(item.title)}" aria-pressed="${activeTab === item.id}">
+  const active = (item) => activeTab === item.id || (item.filter && activeTab === 'issues' && issueFilter === item.filter);
+  const chip = (item) => `<button class="quick-action ${active(item) ? 'is-active' : ''}" data-view="${item.id}" data-filter="${item.filter || ''}" data-priority="${item.priority}" title="${esc(item.title)}" aria-pressed="${active(item)}">
     <span class="qa-icon" aria-hidden="true">${esc(item.icon)}</span><span class="qa-label">${esc(item.label)}</span><span class="qa-short">${esc(item.shortLabel)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`;
   command.classList.remove('hidden');
   command.innerHTML = `${actions.map(chip).join('')}<div class="quick-more-wrap"><button class="quick-more" id="quickMore" aria-expanded="false">More ▾</button><div class="quick-more-menu hidden" id="quickMoreMenu"></div></div>`;
   command.querySelectorAll('.quick-action').forEach(button => button.addEventListener('click', () => {
+    const filter = button.dataset.filter;
     const view = AUDITFLUX_QUICK_ACTIONS.sectionView(button.dataset.view);
+    if (filter) { activeTab = 'issues'; issueFilter = filter; return render(); }
     if (!view) return;
     activeTab = view; issueFilter = 'all'; render();
   }));
@@ -314,12 +318,14 @@ function syncQuickOverflow(actions) {
   if (!menu || !wrap) return;
   const hidden = actions.filter(item => {
     const button = document.querySelector(`.quick-action[data-view="${item.id}"]`);
-    return button && getComputedStyle(button).display === 'none';
+    return !button || getComputedStyle(button).display === 'none';
   });
-  wrap.classList.toggle('hidden', hidden.length === 0);
-  menu.innerHTML = hidden.map(item => `<button class="quick-more-item ${activeTab === item.id ? 'is-active' : ''}" data-quick-view="${item.id}"><span>${esc(item.label)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`).join('');
+  wrap.classList.remove('hidden');
+  menu.innerHTML = hidden.map(item => `<button class="quick-more-item ${active(item) ? 'is-active' : ''}" data-quick-view="${item.id}" data-quick-filter="${item.filter || ''}"><span>${esc(item.label)}</span>${item.count === null ? '' : `<span class="qa-count">${item.count}</span>`}</button>`).join('');
   menu.querySelectorAll('[data-quick-view]').forEach(button => button.addEventListener('click', () => {
+    const filter = button.dataset.quickFilter;
     const view = AUDITFLUX_QUICK_ACTIONS.sectionView(button.dataset.quickView);
+    if (filter) { activeTab = 'issues'; issueFilter = filter; return render(); }
     if (!view) return;
     activeTab = view; issueFilter = 'all'; render();
   }));
@@ -355,13 +361,6 @@ function viewOverview() {
 
   return `
   ${usageStrip()}
-  <div class="stats-4">
-    <button class="stat crit" data-jump="critical"><span class="label">Critical</span><span class="value">${AUDIT.counts.critical} of ${AUDIT.counts.evaluated}</span></button>
-    <button class="stat warn" data-jump="warning"><span class="label">Warnings</span><span class="value">${AUDIT.counts.warning} of ${AUDIT.counts.evaluated}</span></button>
-    <button class="stat note" data-jump="notice"><span class="label">Notices</span><span class="value">${AUDIT.counts.notice} of ${AUDIT.counts.evaluated}</span></button>
-    <button class="stat pass" data-jump="passed"><span class="label">Passed</span><span class="value">${AUDIT.counts.passed} of ${AUDIT.counts.evaluated}</span></button>
-  </div>
-
   <div class="card" style="margin-bottom:14px">
     <div class="card-body">
       <div class="score-row">
@@ -373,6 +372,13 @@ function viewOverview() {
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="stats-4">
+    <button class="stat crit" data-jump="all"><span class="label">Issues</span><span class="value">${AUDIT.issues.length}</span></button>
+    <button class="stat warn" data-jump="warning"><span class="label">Warnings</span><span class="value">${AUDIT.counts.warning}</span></button>
+    <button class="stat note" data-jump="notice"><span class="label">Notices</span><span class="value">${AUDIT.counts.notice}</span></button>
+    <button class="stat pass" data-jump="passed"><span class="label">Passed</span><span class="value">${AUDIT.counts.passed}</span></button>
   </div>
 
   <div class="card" style="margin-bottom:14px">
@@ -493,6 +499,14 @@ function viewGeo() {
   return `${sectionHead('GEO / AEO', 'Real signals that help AI systems and answer engines understand the page.')}
     <div class="stats-4">${compactStat('AI readiness', geoScore === null ? '—' : geoScore, geoScore !== null && geoScore >= 70 ? 'pass' : 'note')}${compactStat('Question headings', DATA.headingStats.questions)}${compactStat('Lists', content.lists)}${compactStat('Tables', content.tables)}</div>
     <div class="card">${compactStatus('AI crawler records', String(DATA.robots.bots.length), DATA.robots.bots.some(bot => bot.allowed) ? 'ok' : 'info', 'Parsed from robots.txt')}${compactStatus('llms.txt files', String(DATA.llms.filter(file => file.state === 'FOUND').length), 'info', 'Optional AI discovery convention')}${compactStatus('Outbound citations', String(DATA.linkStats.external), DATA.linkStats.external ? 'ok' : 'info', 'External links found on this page')}</div>`;
+}
+
+function viewResources() {
+  const resources = Array.isArray(DATA.resources) ? DATA.resources : [];
+  const top = resources.slice().sort((a, b) => (b.transferBytes || 0) - (a.transferBytes || 0)).slice(0, 12);
+  return `${sectionHead('Resources', 'Largest browser resources found during this audit.')}
+    <div class="stats-4">${compactStat('Resources', resources.length)}${compactStat('Third party', DATA.perf?.resources?.thirdPartyCount ?? '—')}${compactStat('Render blockers', DATA.perf?.resources?.renderBlockingCandidates ?? '—')}${compactStat('Known bytes', DATA.perf?.resources?.knownBytes ?? '—')}</div>
+    <div class="card">${top.length ? top.map(resource => compactStatus(resource.kind || 'Resource', resource.transferBytes ? Math.round(resource.transferBytes / 1024) + ' KB' : 'Size unavailable', 'info', clip(resource.url || '', 70))).join('') : '<div class="empty"><b>No resource entries available</b><p>This page did not expose resource timing entries to the browser.</p></div>'}</div>`;
 }
 
 function viewActions() {
