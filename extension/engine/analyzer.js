@@ -670,7 +670,7 @@ async function SCC_ANALYZE() {
     const bytes = html.length;
     const truncated = bytes > MAX_SOURCE_BYTES;
     if (truncated) html = html.slice(0, MAX_SOURCE_BYTES);
-    source = { fetched: res.ok, status: res.status, error: null, html, bytes, truncated, headers };
+    source = { fetched: res.ok, status: res.status, url: res.url, error: null, html, bytes, truncated, headers };
   } catch (e) {
     source.error = String(e.message || e);
   }

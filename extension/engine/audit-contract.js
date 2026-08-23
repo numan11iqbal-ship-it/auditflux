@@ -3,7 +3,7 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.AUDITFLUX_CONTRACT = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function createAuditFluxContract() {
-  const CONTRACT_VERSION = '1.0.0';
+  const CONTRACT_VERSION = '1.1.0';
   const SOURCE_TYPES = new Set(['LIVE', 'LAB', 'FIELD']);
   const SECRET_KEY = /api.?key|authorization|token|secret|password|cookie/i;
 
@@ -89,6 +89,60 @@
     return rows;
   }
 
+  function pageEssentials(data) {
+    const page = data.page || {};
+    const head = data.head || {};
+    const source = data.source || {};
+    const security = data.security || {};
+    const robots = data.robots || {};
+    const pageType = data.pageType || {};
+    const exactUrl = normalizeAuditUrl(page.url);
+    const numericStatus = Number.isFinite(Number(page.httpStatus)) && Number(page.httpStatus) > 0
+      ? Number(page.httpStatus)
+      : Number.isFinite(Number(source.status)) && Number(source.status) > 0 ? Number(source.status) : null;
+    const httpStatusSource = Number.isFinite(Number(page.httpStatus)) && Number(page.httpStatus) > 0
+      ? 'extension_navigation'
+      : Number.isFinite(Number(source.status)) && Number(source.status) > 0 ? 'server_fetch' : 'unavailable';
+    const xRobotsTag = typeof security.xRobotsTag === 'string' ? security.xRobotsTag.toLowerCase() : '';
+    let indexability = 'unknown'; let indexabilityReason = 'Browser capture could not determine robots directives for this page.'; let indexabilitySource = 'unavailable';
+    if (head.noindex) { indexability = 'noindex'; indexabilityReason = 'Meta robots or Googlebot directive contains noindex.'; indexabilitySource = 'meta_robots'; }
+    else if (xRobotsTag.includes('noindex')) { indexability = 'noindex'; indexabilityReason = 'X-Robots-Tag response header contains noindex.'; indexabilitySource = 'response_header'; }
+    else if (robots.pageAllowed === false) { indexability = 'blocked'; indexabilityReason = 'robots.txt blocks Googlebot from the audited path.'; indexabilitySource = 'robots_txt'; }
+    else if (robots.pageAllowed === true) { indexability = 'indexable'; indexabilityReason = 'No noindex directive was detected and robots.txt permits Googlebot for the audited path.'; indexabilitySource = 'robots_txt'; }
+    else if (head.robotsMeta || xRobotsTag) { indexability = 'indexable'; indexabilityReason = 'Captured robots directives do not contain noindex.'; indexabilitySource = head.robotsMeta ? 'meta_robots' : 'response_header'; }
+    const canonicalUrl = normalizeAuditUrl(head.canonical);
+    let canonicalStatus = 'missing'; let canonicalEvidence = 'No canonical link element was captured.';
+    if (head.canonicalCount > 1) { canonicalStatus = 'multiple'; canonicalEvidence = `${head.canonicalCount} canonical link elements were captured.`; }
+    else if (head.canonical && !canonicalUrl) { canonicalStatus = 'invalid'; canonicalEvidence = 'A canonical link was present but could not be normalized as an HTTP URL.'; }
+    else if (canonicalUrl && exactUrl) {
+      const canonicalHost = new URL(canonicalUrl).hostname; const auditedHost = new URL(exactUrl).hostname;
+      canonicalStatus = canonicalHost !== auditedHost ? 'cross-domain' : head.canonicalIsSelf ? 'self-referencing' : 'present';
+      canonicalEvidence = canonicalStatus === 'cross-domain' ? 'The captured canonical points to a different hostname.' : head.canonicalIsSelf ? 'The captured canonical matches the audited URL.' : 'One valid canonical link element was captured.';
+    } else if (canonicalUrl) { canonicalStatus = 'present'; canonicalEvidence = 'One valid canonical link element was captured.'; }
+    const detectedType = typeof pageType.type === 'string' ? pageType.type : 'unknown';
+    const pageTypeValue = detectedType === 'generic' ? 'unknown' : detectedType;
+    const pageTypeEvidence = Array.isArray(pageType.reasons) && pageType.reasons.length ? pageType.reasons.map(String) : ['No reliable classification signal was captured.'];
+    const pageTypeConfidence = pageTypeValue === 'unknown' ? 'unavailable' : pageTypeEvidence.some(reason => /schema/i.test(reason)) ? 'high' : 'medium';
+    return {
+      url: exactUrl,
+      urlSource: 'extension_location',
+      fetchedUrl: normalizeAuditUrl(source.url) || exactUrl,
+      httpStatus: numericStatus,
+      httpStatusSource,
+      httpStatusAvailability: numericStatus === null ? 'unavailable' : 'available',
+      indexability,
+      indexabilityReason,
+      indexabilitySource,
+      canonicalUrl,
+      canonicalStatus,
+      canonicalSource: head.canonical ? 'dom_link' : 'unavailable',
+      canonicalEvidence,
+      pageType: pageTypeValue,
+      pageTypeConfidence,
+      pageTypeEvidence,
+    };
+  }
+
   function normalizeAudit({ data, audit, tab, performance, engineVersion }) {
     if (!data?.page?.url || !audit) throw new Error('A completed extension audit with a page URL is required.');
     const auditUrl = normalizeAuditUrl(data.page.url);
@@ -136,6 +190,7 @@
       wellKnown: data.wellKnown,
       rendering: data.rendering,
       source: data.source,
+      pageEssentials: pageEssentials(data),
     });
 
     const performancePayload = cloneWithoutSecrets(performance || {
@@ -180,5 +235,5 @@
     };
   }
 
-  return { CONTRACT_VERSION, cloneWithoutSecrets, normalizeAuditUrl, normalizeAudit, geoAeoRows };
+  return { CONTRACT_VERSION, cloneWithoutSecrets, normalizeAuditUrl, normalizeAudit, geoAeoRows, pageEssentials };
 });

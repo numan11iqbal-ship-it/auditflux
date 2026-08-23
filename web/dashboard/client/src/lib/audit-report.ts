@@ -24,6 +24,23 @@ export function auditDetail(saved: SavedAudit | null) {
   return record(payload.detail);
 }
 
+export function pageEssentials(saved: SavedAudit | null) {
+  const detail = auditDetail(saved); const stored = record(detail.pageEssentials);
+  if (Object.keys(stored).length) return stored;
+  const page = record(detail.page); const head = record(detail.head); const type = record(detail.pageType); const source = record(detail.source); const robots = record(detail.robots);
+  const navigationStatus = number(page.httpStatus); const sourceStatus = number(source.status); const status = navigationStatus ?? sourceStatus;
+  const indexability = head.noindex === true ? 'noindex' : robots.pageAllowed === false ? 'blocked' : robots.pageAllowed === true ? 'indexable' : 'unknown';
+  const rawReasons = Array.isArray(type.reasons) ? type.reasons.map(text).filter((value): value is string => Boolean(value)) : [];
+  const legacyType = text(type.type);
+  return {
+    url: text(record(saved?.audit).url), urlSource: 'legacy_payload', fetchedUrl: text(page.url), httpStatus: status,
+    httpStatusSource: navigationStatus !== null ? 'extension_navigation' : sourceStatus !== null ? 'server_fetch' : 'unavailable',
+    httpStatusAvailability: status === null ? 'unavailable' : 'available', indexability,
+    indexabilityReason: indexability === 'noindex' ? 'Legacy saved metadata contains a noindex directive.' : indexability === 'blocked' ? 'Legacy saved robots evidence blocks the audited path.' : indexability === 'indexable' ? 'Legacy saved robots evidence permits the audited path.' : 'This legacy audit did not retain enough evidence to determine indexability.',
+    indexabilitySource: head.noindex === true ? 'meta_robots' : robots.pageAllowed !== undefined ? 'robots_txt' : 'unavailable', canonicalUrl: text(head.canonical), canonicalStatus: text(head.canonical) ? 'present' : 'missing', canonicalSource: text(head.canonical) ? 'legacy_payload' : 'unavailable', canonicalEvidence: text(head.canonical) ? 'Canonical retained by a legacy saved audit.' : 'No canonical retained by this legacy saved audit.', pageType: legacyType === 'generic' ? 'unknown' : legacyType || 'unknown', pageTypeConfidence: legacyType && legacyType !== 'generic' ? 'legacy' : 'unavailable', pageTypeEvidence: rawReasons.length ? rawReasons : ['No reliable classification signal was retained by this legacy audit.'],
+  };
+}
+
 export function auditCoverage(saved: SavedAudit | null) {
   const audit = record(saved?.audit);
   const applicable = number(audit.coverage_applicable) ?? 0;

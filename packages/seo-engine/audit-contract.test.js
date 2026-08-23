@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeAudit, normalizeAuditUrl } = require('./audit-contract');
+const { normalizeAudit, normalizeAuditUrl, pageEssentials } = require('./audit-contract');
 
 test('preserves the exact current audited host and path while repairing only accidental duplicated protocols', () => {
   assert.equal(normalizeAuditUrl(' https://social-media-downloader-sav-down.vercel.app/ '), 'https://social-media-downloader-sav-down.vercel.app/');
@@ -20,4 +20,24 @@ test('normalizes extension audit data and removes API credentials', () => {
   assert.equal(payload.performance.lab[0].strategy, 'mobile');
   assert.equal(payload.performance.field[0].metrics.LCP.value, 2100);
   assert.deepEqual(payload.geoAeo.map(item => item.signalKey), ['LLMS_TXT_MISSING', 'AI_CRAWLER_ALLOWED']);
+});
+
+test('creates one evidence-based Page Essentials object without inferring an unavailable HTTP response', () => {
+  const essentials = pageEssentials({
+    page: { url: 'https://example.com/articles/one?view=full', httpStatus: 200 },
+    source: { status: 200, url: 'https://example.com/articles/one?view=full' },
+    head: { canonical: 'https://example.com/articles/one?view=full', canonicalCount: 1, canonicalIsSelf: true, noindex: false, robotsMeta: 'index, follow' },
+    robots: { pageAllowed: true }, security: { xRobotsTag: null }, pageType: { type: 'article', reasons: ['Article schema present'] },
+  });
+  assert.equal(essentials.url, 'https://example.com/articles/one?view=full');
+  assert.equal(essentials.httpStatus, 200);
+  assert.equal(essentials.httpStatusSource, 'extension_navigation');
+  assert.equal(essentials.indexability, 'indexable');
+  assert.equal(essentials.canonicalStatus, 'self-referencing');
+  assert.equal(essentials.pageType, 'article');
+  const unavailable = pageEssentials({ page: { url: 'https://example.com/' }, source: {}, head: {}, robots: {}, security: {}, pageType: {} });
+  assert.equal(unavailable.httpStatus, null);
+  assert.equal(unavailable.httpStatusAvailability, 'unavailable');
+  assert.equal(unavailable.indexability, 'unknown');
+  assert.equal(unavailable.pageType, 'unknown');
 });
