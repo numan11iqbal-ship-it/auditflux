@@ -14,4 +14,9 @@ describe('context-free AuditFlux workspace landing', () => {
     expect(source).toContain('Choose An Audit To Review.');
     expect(source).toContain('Open Audit History');
   });
+
+  it('confirms a successful extension bridge and surfaces a Chrome bridge error', () => {
+    expect(source).toContain('Extension Connected');
+    expect(source).toContain('runtime.lastError?.message');
+  });
 });
