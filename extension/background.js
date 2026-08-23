@@ -46,6 +46,21 @@ async function pairingStatus(sender) {
   return { ok: true, state: 'connected', connection: session.connection || null };
 }
 
+function popupSender(sender) {
+  try {
+    if (sender?.id !== chrome.runtime.id || sender?.tab) return false;
+    return !sender.url || sender.url.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+  } catch { return false; }
+}
+
+async function popupConnection(sender) {
+  if (!popupSender(sender)) return { ok: false, reason: 'INVALID_CALLER' };
+  const stored = await chrome.storage.session.get({ [SESSION_KEY]: null }); const session = stored[SESSION_KEY];
+  if (!session?.sessionToken && !session?.accessToken) return { ok: false, reason: 'CONNECTION_REQUIRED' };
+  if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) { await chrome.storage.session.remove(SESSION_KEY); return { ok: false, reason: 'SESSION_EXPIRED' }; }
+  return { ok: true, connection: session };
+}
+
 async function disconnectPairing(sender) {
   if (!officialSender(sender)) return { ok: false, reason: 'INVALID_ORIGIN' };
   const stored = await chrome.storage.session.get({ [SESSION_KEY]: null }); const session = stored[SESSION_KEY];
@@ -65,6 +80,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (handleConnection(message, sendResponse)) return true;
   if (message?.type === 'auditflux:pair') { pairExtension(message, sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:connection-status') { pairingStatus(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
+  if (message?.type === 'auditflux:get-popup-connection') { popupConnection(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:disconnect') { disconnectPairing(sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'CONNECTION_FAILED' })); return true; }
   if (message?.type === 'auditflux:command') { if (!officialSender(sender)) return sendResponse({ ok: false, reason: 'INVALID_ORIGIN' }); runAuditCommand(message.command, sender).then(sendResponse).catch(() => sendResponse({ ok: false, reason: 'COMMAND_FAILED' })); return true; }
   if (message?.type === 'auditflux:register-audit') {

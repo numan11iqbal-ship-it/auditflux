@@ -54,6 +54,19 @@ test('automatically pairs only from the official AuditFlux workspace and stores 
   assert.equal(rejected.ok, false); assert.equal(rejected.reason, 'INVALID_PAIRING_REQUEST');
 });
 
+test('shares an active session with the extension popup only, never an audited webpage content script', async () => {
+  const listeners = {}; const session = { apiBase: 'https://auditflux.vercel.app', sessionToken: 'short-lived-session', expiresAt: '2030-01-01T00:00:00.000Z' };
+  const chrome = { runtime: { id: 'extension-id', onMessage: { addListener: listener => { listeners.internal = listener; } }, onMessageExternal: { addListener: () => {} } }, storage: { local: { get: async () => ({}), set: async () => {} }, session: { get: async () => ({ auditfluxConnection: session }), set: async () => {}, remove: async () => {} } }, tabs: {}, scripting: {}, windows: {} };
+  const source = fs.readFileSync(path.join(__dirname, 'background.js'), 'utf8');
+  vm.runInNewContext(source, { chrome, importScripts: () => {}, Date, URL, crypto: { randomUUID: () => 'installation-1234567890' }, navigator: { userAgent: 'Chrome Test' }, fetch: async () => ({ ok: true, json: async () => ({}) }) });
+  let popupResponse; listeners.internal({ type: 'auditflux:get-popup-connection' }, { id: 'extension-id', url: 'chrome-extension://extension-id/popup.html' }, value => { popupResponse = value; });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(popupResponse.ok, true); assert.equal(popupResponse.connection.sessionToken, 'short-lived-session');
+  let pageResponse; listeners.internal({ type: 'auditflux:get-popup-connection' }, { id: 'extension-id', url: 'https://example.com', tab: { id: 1 } }, value => { pageResponse = value; });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(pageResponse.ok, false); assert.equal(pageResponse.reason, 'INVALID_CALLER');
+});
+
 test('toggles the existing heading overlay on the exact registered audited tab for the unified SaaS workspace', async () => {
   const listeners = {};
   const registry = { 'audit-123': { tabId: 7, windowId: 2, url: 'https://example.com/article', savedAt: Date.now() } };

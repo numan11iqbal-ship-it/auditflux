@@ -45,7 +45,11 @@ function toast(msg) {
 
 async function auditFluxConnection() {
   const stored = await chrome.storage.session.get({ auditfluxConnection: null });
-  return stored.auditfluxConnection;
+  if (stored.auditfluxConnection?.sessionToken || stored.auditfluxConnection?.accessToken) return stored.auditfluxConnection;
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'auditflux:get-popup-connection' });
+    return response?.ok ? response.connection : null;
+  } catch { return null; }
 }
 
 function auditFluxSessionHeaders(connection) {
@@ -54,21 +58,26 @@ function auditFluxSessionHeaders(connection) {
 
 async function saveAuditToAuditFlux(openWhenSaved) {
   if (!DATA || !AUDIT || !TAB) return toast('Run an audit before saving it');
+  const cached = await chrome.storage.local.get({ sccLatestSavedAudit: null });
+  let saved = cached.sccLatestSavedAudit;
+  const perfCache = await chrome.storage.local.get({ sccLatestPerformance: null });
+  const performance = perfCache.sccLatestPerformance?.url === DATA.page.url
+    ? perfCache.sccLatestPerformance.performance
+    : null;
+  const payload = AUDITFLUX_CONTRACT.normalizeAudit({ data: DATA, audit: AUDIT, tab: TAB, performance });
+  AUDIT.__auditfluxClientAuditId = payload.clientAuditId;
+  if (saved?.clientAuditId === payload.clientAuditId && openWhenSaved) {
+    chrome.tabs.create({ url: auditFluxWebAppUrl('/audit/' + encodeURIComponent(saved.auditId) + '/reports') });
+    return window.close();
+  }
   const connection = await auditFluxConnection();
   if (!connection?.apiBase || (!connection?.accessToken && !connection?.sessionToken)) {
-    return toast('Sign in on the AuditFlux web app and choose Connect Extension first');
+    if (openWhenSaved) chrome.tabs.create({ url: auditFluxWebAppUrl('/connect-extension') });
+    return toast('Reconnect AuditFlux Extension in the Web App before saving this new audit');
   }
   const backend = sccNormalizeBackendUrl(connection.apiBase);
   if (!backend || !await sccRequestBackendPermission(backend)) return toast('Grant access to the AuditFlux API before saving');
-  const cached = await chrome.storage.local.get({ sccLatestSavedAudit: null });
-  let saved = cached.sccLatestSavedAudit;
-  if (!saved || saved.clientAuditId !== AUDIT.__auditfluxClientAuditId) {
-    const perfCache = await chrome.storage.local.get({ sccLatestPerformance: null });
-    const performance = perfCache.sccLatestPerformance?.url === DATA.page.url
-      ? perfCache.sccLatestPerformance.performance
-      : null;
-    const payload = AUDITFLUX_CONTRACT.normalizeAudit({ data: DATA, audit: AUDIT, tab: TAB, performance });
-    AUDIT.__auditfluxClientAuditId = payload.clientAuditId;
+  if (!saved || saved.clientAuditId !== payload.clientAuditId) {
     try {
       const response = await fetch(backend + '/api/audits', {
         method: 'POST',

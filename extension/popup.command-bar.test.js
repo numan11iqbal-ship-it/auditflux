@@ -11,6 +11,10 @@ test('full report saves then opens the canonical signed-in Export & Report Cente
   assert.match(popup, /\$\('#dashboardBtn'\)\.addEventListener\('click', \(\) => saveAuditToAuditFlux\(true\)\)/);
   assert.match(popup, /const AUDITFLUX_WEB_APP_ORIGIN = 'https:\/\/auditflux\.vercel\.app';/);
   assert.match(popup, /chrome\.tabs\.create\(\{ url: auditFluxWebAppUrl\('\/audit\/' \+ encodeURIComponent\(saved\.auditId\) \+ '\/reports'\) \}\)/);
+  assert.match(popup, /auditflux:get-popup-connection/);
+  assert.match(popup, /const payload = AUDITFLUX_CONTRACT\.normalizeAudit\(\{ data: DATA, audit: AUDIT, tab: TAB, performance \}\)/);
+  assert.match(popup, /saved\?\.clientAuditId === payload\.clientAuditId && openWhenSaved/);
+  assert.match(popup, /auditFluxWebAppUrl\('\/connect-extension'\)/);
 });
 
 test('top-bar Web App action opens the current audited page in the canonical signed-in AuditFlux application', () => {
